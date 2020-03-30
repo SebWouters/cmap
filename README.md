@@ -1,4 +1,26 @@
 cmap is a collapsible hierarchically ordered coordinate map
+-----------------------------------------------------------
+cmap provides an implementation in the style of ```std::map``` holding:
 
-Work in progress
+* keys = coordinates (```std::array<_Tc, _DIM>```), and
+* values = data (```_Td```).
+
+cmap automatically merges values associated with identical coordinates
+according to a user-implemented function
+```void merge(_Td& left, const _Td& right)```. cmap furthermore provides
+a resize() function, which
+
+* divides the linear resolution by two,
+* adjusts the coordinates correspondingly, and
+* merges values associated with identical adjusted coordinates.
+
+Work in progess.
+
+Copyright
+---------
+Copyright (c) 2020, Sebastian Wouters
+All rights reserved.
+
+cmap is licensed under the BSD 3-Clause License. A copy of the License
+can be found in the file LICENSE in the root folder of this project.
 
