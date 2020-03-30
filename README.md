@@ -1,5 +1,6 @@
-cmap is a collapsible hierarchically ordered coordinate map
------------------------------------------------------------
+cmap is a resizable coordinate map
+----------------------------------
+
 cmap provides an implementation in the style of ```std::map``` holding:
 
 * keys = coordinates (```std::array<_Tc, _DIM>```), and
@@ -20,7 +21,9 @@ Work in progess.
 
 Copyright
 ---------
+
 Copyright (c) 2020, Sebastian Wouters
+
 All rights reserved.
 
 cmap is licensed under the BSD 3-Clause License. A copy of the License

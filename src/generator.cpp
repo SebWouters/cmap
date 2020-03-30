@@ -1,5 +1,5 @@
 /*
-    cmap is a collapsible hierarchically ordered coordinate map
+    cmap is a resizable coordinate map
 
     Copyright (c) 2020, Sebastian Wouters
     All rights reserved.
@@ -79,7 +79,7 @@ int main()
     output.open("permutation.hpp", std::ios::out | std::ios::trunc);
 
     output << "/*" << std::endl
-           << "    cmap is a collapsible hierarchically ordered coordinate map" << std::endl
+           << "    cmap is a resizable coordinate map" << std::endl
            << std::endl
            << "    Copyright (c) 2020, Sebastian Wouters" << std::endl
            << "    All rights reserved." << std::endl

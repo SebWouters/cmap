@@ -1,5 +1,5 @@
 /*
-    cmap is a collapsible hierarchically ordered coordinate map
+    cmap is a resizable coordinate map
 
     Copyright (c) 2020, Sebastian Wouters
     All rights reserved.
