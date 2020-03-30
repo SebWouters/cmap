@@ -19,7 +19,7 @@ struct data_type
     double radius;
 };
 
-using octomap = _cmap::cmap<uint32_t, data_type, 3>;
+using octomap = cmap<uint32_t, data_type, 3>;
 using coord_t = octomap::coord_t;
 using  pair_t = octomap::pair_t;
 
@@ -55,7 +55,7 @@ int main()
         size_t cnt = 0U;
         for (const pair_t& pair : my_map)
         {
-            std::cout << "Pair " << cnt << " = {" << pair.coord[0] << ", " << pair.coord[1] << ", " << pair.coord[2] << " } and rad = " << pair.data.radius << std::endl;
+            std::cout << "Pair " << cnt << " = {" << pair.first[0] << ", " << pair.first[1] << ", " << pair.first[2] << " } and rad = " << pair.second.radius << std::endl;
             ++cnt;
         }
 
