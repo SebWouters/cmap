@@ -1,19 +1,19 @@
 cmap is a resizable coordinate map
 ----------------------------------
 
-cmap provides an implementation in the style of ```std::map``` holding:
+```cmap<_Tc, _Td, _DIM>``` provides an implementation in the style of
+```std::map``` holding:
 
-* keys = coordinates (```std::array<_Tc, _DIM>```), and
+* keys = coordinates (```std::array<_Tc, _DIM>```), associated with
 * values = data (```_Td```).
 
-cmap automatically merges values associated with identical coordinates
+cmap automatically merges values associated with coordinate collisions
 according to a user-implemented function
 ```void merge(_Td& left, const _Td& right)```. cmap furthermore provides
 a function ```void resize()```, which
 
-* divides the linear size by two,
-* adjusts the coordinates correspondingly, and
-* merges values associated with identical adjusted coordinates.
+* divides each coordinate by two, and
+* merges values associated with adjusted coordinate collisions.
 
 An example can be found in ```tests/test2.cpp```.
 
