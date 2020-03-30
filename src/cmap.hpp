@@ -19,7 +19,7 @@
 #include <iterator>
 #include <type_traits>
 
-namespace cmap2
+namespace _cmap
 {
 
 
@@ -81,7 +81,7 @@ inline void _shift(std::array<_Tc, _DIM>& coordinates, const uint8_t amount)
     Return the child of node to which coordinates correspond
 */
 template<class _Tc, class _Td, size_t _DIM>
-inline cmap2::_types::node_t<_Tc, _Td, _DIM>& _child(const cmap2::_types::node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+inline _cmap::_types::node_t<_Tc, _Td, _DIM>& _child(const _cmap::_types::node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
     {
         assert(node._children);
         uint32_t child_idx = 0U;
@@ -97,7 +97,7 @@ inline cmap2::_types::node_t<_Tc, _Td, _DIM>& _child(const cmap2::_types::node_t
     Find the matching node for novel recursively, and insert novel in the matchting node
 */
 template<class _Tc, class _Td, size_t _DIM>
-size_t _insert(cmap2::_types::node_t<_Tc, _Td, _DIM>& node, const cmap2::_types::pair_t<_Tc, _Td, _DIM>& novel)
+size_t _insert(_cmap::_types::node_t<_Tc, _Td, _DIM>& node, const _cmap::_types::pair_t<_Tc, _Td, _DIM>& novel)
     {
         if (node._children)
         {
@@ -109,7 +109,7 @@ size_t _insert(cmap2::_types::node_t<_Tc, _Td, _DIM>& node, const cmap2::_types:
             assert(node._data);
 
             // merge
-            for (cmap2::_types::pair_t<_Tc, _Td, _DIM>& pair : *(node._data))
+            for (_cmap::_types::pair_t<_Tc, _Td, _DIM>& pair : *(node._data))
             {
                 if (pair.coord == novel.coord)
                 {
@@ -121,25 +121,25 @@ size_t _insert(cmap2::_types::node_t<_Tc, _Td, _DIM>& node, const cmap2::_types:
             // add
             if (node._data->size() < (1U << _DIM))
             {
-                node._data->push_back(novel);
+                node._data->push_back(std::move(novel));
                 return 1U;
             }
 
             // children
             assert(node._level != 0U);
             const uint8_t child_level = node._level - 1U;
-            node._children = std::make_unique<std::array<cmap2::_types::node_t<_Tc, _Td, _DIM>, (1U << _DIM)>>();
-            for (cmap2::_types::node_t<_Tc, _Td, _DIM>& newchild : *(node._children))
+            node._children = std::make_unique<std::array<_cmap::_types::node_t<_Tc, _Td, _DIM>, (1U << _DIM)>>();
+            for (_cmap::_types::node_t<_Tc, _Td, _DIM>& newchild : *(node._children))
             {
-                newchild._data     = std::make_unique<std::vector<cmap2::_types::pair_t<_Tc, _Td, _DIM>>>();
+                newchild._data     = std::make_unique<std::vector<_cmap::_types::pair_t<_Tc, _Td, _DIM>>>();
               //newchild._data->reserve(1U << _DIM);
                 newchild._children = nullptr;
                 newchild._parent   = &node;
                 newchild._level    = child_level;
             }
-            for (const cmap2::_types::pair_t<_Tc, _Td, _DIM>& pair : *(node._data))
+            for (const _cmap::_types::pair_t<_Tc, _Td, _DIM>& pair : *(node._data))
             {
-                _child(node, pair.coord)._data->push_back(pair);
+                _child(node, pair.coord)._data->push_back(std::move(pair));
             }
             node._data.reset(nullptr);
             return _insert(_child(node, novel.coord), novel);
@@ -151,13 +151,13 @@ size_t _insert(cmap2::_types::node_t<_Tc, _Td, _DIM>& node, const cmap2::_types:
     Resize the nodes recursively: coordinates are divided by two & colliding data is merged
 */
 template<class _Tc, class _Td, size_t _DIM>
-size_t _resize(cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
+size_t _resize(_cmap::_types::node_t<_Tc, _Td, _DIM>& node)
     {
         size_t num_removed = 0U;
         if (node._data)
         {
             assert(!node._children);
-            for (cmap2::_types::pair_t<_Tc, _Td, _DIM>& pair : *(node._data))
+            for (_cmap::_types::pair_t<_Tc, _Td, _DIM>& pair : *(node._data))
             {
                 _shift(pair.coord, 1U);
             }
@@ -165,10 +165,10 @@ size_t _resize(cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
             {
                 for (auto iter = node._data->begin(); iter != node._data->end(); /*custom update*/)
                 {
-                    cmap2::_types::pair_t<_Tc, _Td, _DIM>& target = *iter;
+                    _cmap::_types::pair_t<_Tc, _Td, _DIM>& target = *iter;
                     ++iter;
                     node._data->erase(std::remove_if(iter, node._data->end(),
-                            [&target, &num_removed](const cmap2::_types::pair_t<_Tc, _Td, _DIM>& remove)
+                            [&target, &num_removed](const _cmap::_types::pair_t<_Tc, _Td, _DIM>& remove)
                             {
                                 if (target.coord == remove.coord)
                                 {
@@ -187,21 +187,21 @@ size_t _resize(cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
             assert(node._children);
             if (node._level == 1U)
             {
-                node._data = std::make_unique<std::vector<cmap2::_types::pair_t<_Tc, _Td, _DIM>>>();
-                for (cmap2::_types::node_t<_Tc, _Td, _DIM>& child : *(node._children))
+                node._data = std::make_unique<std::vector<_cmap::_types::pair_t<_Tc, _Td, _DIM>>>();
+                for (_cmap::_types::node_t<_Tc, _Td, _DIM>& child : *(node._children))
                 {
                     assert( child._data);
                     assert(!child._children);
                     if (child._data->size() != 0U)
                     {
                         num_removed += child._data->size() - 1U;
-                        cmap2::_types::pair_t<_Tc, _Td, _DIM>& target = (*(child._data))[0U];
+                        _cmap::_types::pair_t<_Tc, _Td, _DIM>& target = (*(child._data))[0U];
                         _shift(target.coord, 1U);
                         for (auto iter = child._data->begin() + 1U; iter != child._data->end(); ++iter)
                         {
                             merge(target.data, (*iter).data);
                         }
-                        node._data->push_back(target);
+                        node._data->push_back(std::move(target));
                     }
                 }
                 node._children.reset(nullptr);
@@ -209,7 +209,7 @@ size_t _resize(cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
             else
             {
                 assert(node._level > 1U);
-                for (cmap2::_types::node_t<_Tc, _Td, _DIM>& child : *(node._children))
+                for (_cmap::_types::node_t<_Tc, _Td, _DIM>& child : *(node._children))
                 {
                     num_removed += _resize(child);
                 }
@@ -226,12 +226,12 @@ size_t _resize(cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
     Find the leftmost data holding node (with data)
 */
 template<class _Tc, class _Td, size_t _DIM>
-const cmap2::_types::node_t<_Tc, _Td, _DIM> * _leftmost(const cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
+const _cmap::_types::node_t<_Tc, _Td, _DIM> * _leftmost(const _cmap::_types::node_t<_Tc, _Td, _DIM>& node)
     {
         if (node._children)
         {
             assert(!node._data);
-            for (const cmap2::_types::node_t<_Tc, _Td, _DIM>& child : *(node._children))
+            for (const _cmap::_types::node_t<_Tc, _Td, _DIM>& child : *(node._children))
             {
                 if (child._children)
                 {
@@ -261,7 +261,7 @@ const cmap2::_types::node_t<_Tc, _Td, _DIM> * _leftmost(const cmap2::_types::nod
     Goto the next data holding node (with data)
 */
 template<class _Tc, class _Td, size_t _DIM>
-const cmap2::_types::node_t<_Tc, _Td, _DIM> * _next(const cmap2::_types::node_t<_Tc, _Td, _DIM>& node)
+const _cmap::_types::node_t<_Tc, _Td, _DIM> * _next(const _cmap::_types::node_t<_Tc, _Td, _DIM>& node)
     {
         if (node._parent == nullptr)
             return nullptr;
@@ -310,8 +310,8 @@ class cmap
     public:
 
         using coord_t = std::array<_Tc, _DIM>;
-        using pair_t  = cmap2::_types::pair_t<_Tc, _Td, _DIM>;
-        using node_t  = cmap2::_types::node_t<_Tc, _Td, _DIM>;
+        using pair_t  = _cmap::_types::pair_t<_Tc, _Td, _DIM>;
+        using node_t  = _cmap::_types::node_t<_Tc, _Td, _DIM>;
 
     private:
 
@@ -323,7 +323,7 @@ class cmap
 
         cmap()
         {
-            assert(cmap2::_tools::_template_checks(static_cast<_Tc>(7U), _DIM));
+            assert(_cmap::_tools::_template_checks(static_cast<_Tc>(7U), _DIM));
             _num_shifts = 0U;
             _size = 0U;
             _root = std::make_unique<node_t>();
@@ -344,13 +344,13 @@ class cmap
         void insert(const coord_t& coord_in, const _Td& data_in)
         {
             pair_t novel = { coord_in, data_in };
-            cmap2::_tools::_shift(novel.coord, _num_shifts);
-            _size += cmap2::_tools::_insert(*_root, novel);
+            _cmap::_tools::_shift(novel.coord, _num_shifts);
+            _size += _cmap::_tools::_insert(*_root, novel);
         }
 
         void resize()
         {
-            _size -= cmap2::_tools::_resize(*_root);            
+            _size -= _cmap::_tools::_resize(*_root);
             ++_num_shifts;
         }
 
@@ -388,7 +388,7 @@ class cmap
                     else
                     {
                         _elem = 0U;
-                        _node = cmap2::_tools::_next(*_node);
+                        _node = _cmap::_tools::_next(*_node);
                     }
                 }
 
@@ -398,7 +398,7 @@ class cmap
         {
             if (_size == 0U)
                 return end();
-            return const_iterator(cmap2::_tools::_leftmost(*_root), 0U);
+            return const_iterator(_cmap::_tools::_leftmost(*_root), 0U);
         }
 
         const_iterator end() const
