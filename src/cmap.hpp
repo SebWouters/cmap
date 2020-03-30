@@ -14,8 +14,6 @@
 #include <assert.h>
 #include <array>
 #include <memory>
-#include <functional>
-#include <algorithm>
 #include <iterator>
 #include <type_traits>
 
@@ -88,7 +86,7 @@ inline node_t<_Tc, _Td, _DIM>& _child(const node_t<_Tc, _Td, _DIM>& node, const 
 
 
 /*
-    Find the matching node for novel recursively, and insert novel in the matchting node
+    Find the matching node for novel recursively, and insert novel in the matching node
 */
 template<class _Tc, class _Td, size_t _DIM>
 size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::pair<std::array<_Tc, _DIM>, _Td>& novel)
@@ -163,23 +161,31 @@ size_t _resize(node_t<_Tc, _Td, _DIM>& node)
             }
             if (node._data->size() > 1U)
             {
-                for (auto iter = node._data->begin(); iter != node._data->end(); /*custom update*/)
+                auto head = node._data->begin();
+                auto end  = node._data->end();
+                while (head != end)
                 {
-                    pair_t& target = *iter;
-                    ++iter;
-                    node._data->erase(std::remove_if(iter, node._data->end(),
-                            [&target, &num_removed](const pair_t& remove)
-                            {
-                                if (target.first == remove.first)
-                                {
-                                    merge(target.second, remove.second);
-                                    ++num_removed;
-                                    return true;
-                                }
-                                return false;
-                            }
-                        ), node._data->end());
+                    pair_t& target = *head;
+                    ++head;
+                    auto iter = head;
+                    auto res  = head;
+                    while (iter != end)
+                    {
+                        if (target.first == (*iter).first)
+                        {
+                            merge(target.second, (*iter).second);
+                            ++num_removed;
+                        }
+                        else
+                        {
+                            *res = std::move(*iter);
+                            ++res;
+                        }
+                        ++iter;
+                    }
+                    end = res;
                 }
+                node._data->erase(end, node._data->end());
             }
         }
         else
@@ -226,21 +232,16 @@ size_t _resize(node_t<_Tc, _Td, _DIM>& node)
     Find the leftmost data holding node (with data)
 */
 template<class _Tc, class _Td, size_t _DIM>
-const node_t<_Tc, _Td, _DIM> * _leftmost(const node_t<_Tc, _Td, _DIM>& node)
+const node_t<_Tc, _Td, _DIM> * _leftmost(const node_t<_Tc, _Td, _DIM>& node) noexcept
     {
         if (node._children)
         {
-            assert(!node._data);
             for (auto child = node._children->cbegin(); child != node._children->cend(); ++child)
             {
                 if (child->_children)
-                {
-                    assert(!child->_data);
                     return _leftmost(*child);
-                }
                 else
                 {
-                    assert(child->_data);
                     if (child->_data->size() != 0U)
                         return &(*child);
                 }
@@ -248,7 +249,6 @@ const node_t<_Tc, _Td, _DIM> * _leftmost(const node_t<_Tc, _Td, _DIM>& node)
         }
         else
         {
-            assert(node._data);
             if (node._data->size() != 0U)
                 return &node;
         }
@@ -258,44 +258,95 @@ const node_t<_Tc, _Td, _DIM> * _leftmost(const node_t<_Tc, _Td, _DIM>& node)
 
 
 /*
-    Goto the next data holding node (with data)
+    Find the rightmost data holding node (with data)
 */
 template<class _Tc, class _Td, size_t _DIM>
-const node_t<_Tc, _Td, _DIM> * _next_from_left(const node_t<_Tc, _Td, _DIM>& node)
+const node_t<_Tc, _Td, _DIM> * _rightmost(const node_t<_Tc, _Td, _DIM>& node) noexcept
+    {
+        if (node._children)
+        {
+            for (auto child = node._children->crbegin(); child != node._children->crend(); ++child)
+            {
+                if (child->_children)
+                    return _rightmost(*child);
+                else
+                {
+                    if (child->_data->size() != 0U)
+                        return &(*child);
+                }
+            }
+        }
+        else
+        {
+            if (node._data->size() != 0U)
+                return &node;
+        }
+        assert(false);
+        return nullptr;
+    }
+
+
+/*
+    Goto the next data holding node from left to right (with data)
+*/
+template<class _Tc, class _Td, size_t _DIM>
+const node_t<_Tc, _Td, _DIM> * _next_from_left(const node_t<_Tc, _Td, _DIM>& node) noexcept
     {
         if (node._parent == nullptr)
             return nullptr;
 
-        // Position?
-        assert(node._parent->_children);
-        auto search = node._parent->_children->cbegin();
-        auto    end = node._parent->_children->cend();
-        while (search != end)
-        {
-            if (&(*search) == &node)
-                break;
-            ++search;
-        }
-        assert(search != end);
+        // Find node
+        auto iter = node._parent->_children->cbegin();
+        while (&(*iter) != &node)
+            ++iter;
 
-        // Sibling has data?
-        for (auto sibling = search + 1U; sibling != end; ++sibling)
+        // Sibling with data
+        auto end = node._parent->_children->cend();
+        for (++iter; iter != end; ++iter)
         {
-            if (sibling->_children)
-            {
-                assert(!sibling->_data);
-                return _leftmost(*sibling); // Search down the sibling branch
-            }
+            if (iter->_children)
+                return _leftmost(*iter); // Search down the sibling branch
             else
             {
-                assert(sibling->_data);
-                if (sibling->_data->size() != 0U)
-                    return &(*sibling);
+                if (iter->_data->size() != 0U)
+                    return &(*iter);
             }
         }
 
-        // No data in siblings of node --> siblings of parent?
+        // Siblings of parent
         return _next_from_left(*(node._parent));
+    }
+
+
+/*
+    Goto the next data holding node from right to left (with data)
+*/
+template<class _Tc, class _Td, size_t _DIM>
+const node_t<_Tc, _Td, _DIM> * _next_from_right(const node_t<_Tc, _Td, _DIM>& node) noexcept
+    {
+        if (node._parent == nullptr)
+            return nullptr;
+
+        // Find node
+        auto iter = node._parent->_children->crbegin();
+        while (&(*iter) != &node)
+            ++iter;
+
+        // Sibling with data
+        auto end = node._parent->_children->crend();
+        for (++iter; iter != end; ++iter)
+        {
+            if (iter->_children)
+                return _rightmost(*iter); // Search down the sibling branch
+            else
+            {
+                if (iter->_data->size() != 0U)
+                    return &(*iter);
+            }
+        }
+
+        // Siblings of parent
+        return _next_from_right(*(node._parent));
     }
 
 
@@ -355,7 +406,8 @@ class cmap
         }
 
         inline uint8_t num_resizes() const { return _num_shifts; }
-        inline size_t  size() const { return _size; }
+        inline size_t size() const { return _size; }
+        inline bool empty() const { return _size == 0U; }
 
     public:
 
@@ -374,8 +426,8 @@ class cmap
                 const_iterator  operator++(int) { const_iterator returnval = *this; this->next_iter(); return returnval; }
                 const pair_t&   operator*()  { return (*(_node->_data))[_elem]; }
                 const pair_t&   operator->() { return (*(_node->_data))[_elem]; }
-                bool            operator==(const_iterator other) const { return (_node == other._node) && (_elem == other._elem); }
-                bool            operator!=(const_iterator other) const { return (_node != other._node) || (_elem != other._elem); }
+                bool            operator==(const_iterator other) const noexcept { return (_node == other._node) && (_elem == other._elem); }
+                bool            operator!=(const_iterator other) const noexcept { return (_node != other._node) || (_elem != other._elem); }
 
             private:
 
@@ -390,16 +442,66 @@ class cmap
 
         };
 
-        const_iterator begin() const
+        const_iterator begin() const noexcept
         {
-            if (_size == 0U)
+            if (empty())
                 return end();
             return const_iterator(_cmapbase::_leftmost(*_root), 0U);
         }
 
-        const_iterator end() const
+        const_iterator end() const noexcept
         {
             return const_iterator(nullptr, 0U);
+        }
+
+    public:
+
+        class reverse_iterator
+        {
+            private:
+
+                const node_t * _node;
+                size_t         _elem;
+
+            public:
+
+                reverse_iterator(const node_t * node_in, const size_t elem_in) : _node(node_in), _elem(elem_in) {}
+                reverse_iterator(const reverse_iterator& in) : _node(in._node), _elem(in._elem) {}
+                reverse_iterator& operator++() { this->next_iter(); return *this; }
+                reverse_iterator  operator++(int) { reverse_iterator returnval = *this; this->next_iter(); return returnval; }
+                const pair_t&     operator*()  { return (*(_node->_data))[_elem]; }
+                const pair_t&     operator->() { return (*(_node->_data))[_elem]; }
+                bool              operator==(reverse_iterator other) const noexcept { return (_node == other._node) && (_elem == other._elem); }
+                bool              operator!=(reverse_iterator other) const noexcept { return (_node != other._node) || (_elem != other._elem); }
+
+            private:
+
+                void next_iter()
+                {
+                    if (_elem == 0U)
+                    {
+                        _node = _cmapbase::_next_from_right(*_node);
+                        _elem = (_node) ? _node->_data->size() - 1U : 0U;
+                    }
+                    else
+                    {
+                        --_elem;
+                    }
+                }
+
+        };
+
+        reverse_iterator rbegin() const noexcept
+        {
+            if (empty())
+                return rend();
+            const node_t * right = _cmapbase::_rightmost(*_root);
+            return reverse_iterator(right, right->_data->size() - 1U);
+        }
+
+        reverse_iterator rend() const noexcept
+        {
+            return reverse_iterator(nullptr, 0U);
         }
 
 

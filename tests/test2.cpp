@@ -46,21 +46,36 @@ int main()
         std::cout << "Novel = {" << coord[0] << ", " << coord[1] << ", " << coord[2] << " } and rad = " << data.radius << std::endl;
     }
 
-
     while (8 * my_map.size() > num_points)
     {
         std::cout << "--------------------------" << std::endl;
         my_map.resize();
 
-        size_t cnt = 0U;
+        size_t cnt_fw = 0U;
+        double check_fw = 0.0;
         for (const pair_t& pair : my_map)
         {
-            std::cout << "Pair " << cnt << " = {" << pair.first[0] << ", " << pair.first[1] << ", " << pair.first[2] << " } and rad = " << pair.second.radius << std::endl;
-            ++cnt;
+            std::cout << "Pair " << cnt_fw << " = {" << pair.first[0] << ", " << pair.first[1] << ", " << pair.first[2] << " } and rad = " << pair.second.radius << std::endl;
+            ++cnt_fw;
+            check_fw += pair.second.radius * pair.second.radius;
         }
 
-        if (cnt != my_map.size())
+        if (cnt_fw != my_map.size())
             return 255;
+
+        size_t cnt_bw = 0U;
+        double check_bw = 0.0;
+        for (auto iter = my_map.rbegin(); iter != my_map.rend(); ++iter)
+        {
+            ++cnt_bw;
+            check_bw += (*iter).second.radius * (*iter).second.radius;
+        }
+
+        if (cnt_bw != my_map.size())
+            return 253;
+
+        if (fabs(check_fw - check_bw) > 1e-6)
+            return 251;
     }
 
     return 0;
