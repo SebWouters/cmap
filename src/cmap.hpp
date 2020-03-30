@@ -381,11 +381,7 @@ class cmap
 
                 void next_iter()
                 {
-                    if (_node->_data->size() != _elem + 1U)
-                    {
-                        ++_elem;
-                    }
-                    else
+                    if (++_elem == _node->_data->size())
                     {
                         _elem = 0U;
                         _node = _cmapbase::_next_from_left(*_node);
