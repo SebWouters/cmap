@@ -89,7 +89,7 @@ inline node_t<_Tc, _Td, _DIM>& _child(const node_t<_Tc, _Td, _DIM>& node, const 
     Return the node to which coordinates correspond
 */
 template<class _Tc, class _Td, size_t _DIM>
-inline node_t<_Tc, _Td, _DIM>& _find_node(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+inline node_t<_Tc, _Td, _DIM>& _find_node(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
     {
         if (node._children)
             return _find_node(_child(node, coordinates), coordinates);
@@ -107,51 +107,44 @@ inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::pair<std::array<_
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
         using node_t = node_t<_Tc, _Td, _DIM>;
 
-        if (node._children)
+        assert(node._data);
+
+        // merge
+        for (pair_t& target : *(node._data))
         {
-            assert(!node._data);
-            return _insert(_child(node, novel.first), novel);
+            if (target.first == novel.first)
+            {
+                merge(target.second, novel.second);
+                return 0U;
+            }
         }
-        else
+
+        // add
+        if (node._data->size() < (1U << _DIM))
         {
-            assert(node._data);
-
-            // merge
-            for (pair_t& target : *(node._data))
-            {
-                if (target.first == novel.first)
-                {
-                    merge(target.second, novel.second);
-                    return 0U;
-                }
-            }
-
-            // add
-            if (node._data->size() < (1U << _DIM))
-            {
-                node._data->push_back(std::move(novel));
-                return 1U;
-            }
-
-            // children
-            assert(node._level != 0U);
-            const uint8_t child_level = node._level - 1U;
-            node._children = std::make_unique<std::array<node_t, (1U << _DIM)>>();
-            for (node_t& newchild : *(node._children))
-            {
-                newchild._data     = std::make_unique<std::vector<pair_t>>();
-              //newchild._data->reserve(1U << _DIM);
-                newchild._children = nullptr;
-                newchild._parent   = &node;
-                newchild._level    = child_level;
-            }
-            for (const pair_t& item : *(node._data))
-            {
-                _child(node, item.first)._data->push_back(std::move(item));
-            }
-            node._data.reset(nullptr);
-            return _insert(_child(node, novel.first), novel);
+            node._data->push_back(std::move(novel));
+            return 1U;
         }
+
+        // children
+        assert(node._level != 0U);
+        const uint8_t child_level = node._level - 1U;
+        node._children = std::make_unique<std::array<node_t, (1U << _DIM)>>();
+        for (node_t& newchild : *(node._children))
+        {
+            newchild._data     = std::make_unique<std::vector<pair_t>>();
+          //newchild._data->reserve(1U << _DIM);
+            newchild._children = nullptr;
+            newchild._parent   = &node;
+            newchild._level    = child_level;
+        }
+        for (const pair_t& item : *(node._data))
+        {
+            _child(node, item.first)._data->push_back(std::move(item));
+        }
+        node._data.reset(nullptr);
+        return _insert(_child(node, novel.first), novel);
+
     }
 
 
@@ -384,7 +377,7 @@ class cmap
         {
             pair_t novel = { coord_in, data_in };
             _cmapbase::_shift(novel.first, _num_shifts);
-            _size += _cmapbase::_insert(*_root, novel);
+            _size += _cmapbase::_insert(_find_node(*_root, novel.first), novel);
         }
 
         void resize()
