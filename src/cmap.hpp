@@ -228,18 +228,45 @@ size_t _resize(node_t<_Tc, _Td, _DIM>& node)
     }
 
 
+template<typename _It, class _Ta>
+inline typename std::enable_if<std::is_same<_It, typename _Ta::const_iterator>::value, _It>::type _begin(_Ta& in)
+{
+    return in.cbegin();
+}
+
+template<typename _It, class _Ta>
+inline typename std::enable_if<std::is_same<_It, typename _Ta::const_reverse_iterator>::value, _It>::type _begin(_Ta& in)
+{
+    return in.crbegin();
+}
+
+template<typename _It, class _Ta>
+inline typename std::enable_if<std::is_same<_It, typename _Ta::const_iterator>::value, _It>::type _end(_Ta& in)
+{
+    return in.cend();
+}
+
+template<typename _It, class _Ta>
+inline typename std::enable_if<std::is_same<_It, typename _Ta::const_reverse_iterator>::value, _It>::type _end(_Ta& in)
+{
+    return in.crend();
+}
+
+
 /*
-    Find the first data holding node (with data)
+    Search data down the tree
 */
-template<class _Tc, class _Td, size_t _DIM>
-const node_t<_Tc, _Td, _DIM> * _first(const node_t<_Tc, _Td, _DIM>& node) noexcept
+template<typename _It, class _Tc, class _Td, size_t _DIM>
+const node_t<_Tc, _Td, _DIM> * _down(const node_t<_Tc, _Td, _DIM>& node) noexcept
     {
         if (node._children)
         {
-            for (auto child = node._children->cbegin(); child != node._children->cend(); ++child)
+            _It child = _begin<_It>(*(node._children));
+            _It   end =   _end<_It>(*(node._children));
+            for (; child != end; ++child)
             {
                 if (child->_children)
-                    return _first(*child);
+                    return _down<_It>(*child);
                 else
                 {
                     if (child->_data->size() != 0U)
@@ -258,54 +285,25 @@ const node_t<_Tc, _Td, _DIM> * _first(const node_t<_Tc, _Td, _DIM>& node) noexce
 
 
 /*
-    Find the last data holding node (with data)
+    Search following data
 */
-template<class _Tc, class _Td, size_t _DIM>
-const node_t<_Tc, _Td, _DIM> * _last(const node_t<_Tc, _Td, _DIM>& node) noexcept
-    {
-        if (node._children)
-        {
-            for (auto child = node._children->crbegin(); child != node._children->crend(); ++child)
-            {
-                if (child->_children)
-                    return _last(*child);
-                else
-                {
-                    if (child->_data->size() != 0U)
-                        return &(*child);
-                }
-            }
-        }
-        else
-        {
-            if (node._data->size() != 0U)
-                return &node;
-        }
-        assert(false);
-        return nullptr;
-    }
-
-
-/*
-    Goto the next data holding node (with data; neighbour in direction first --> last)
-*/
-template<class _Tc, class _Td, size_t _DIM>
-const node_t<_Tc, _Td, _DIM> * _next(const node_t<_Tc, _Td, _DIM>& node) noexcept
+template<typename _It, class _Tc, class _Td, size_t _DIM>
+const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& node) noexcept
     {
         if (node._parent == nullptr)
             return nullptr;
 
         // Find node
-        auto iter = node._parent->_children->cbegin();
+        _It iter = _begin<_It>(*(node._parent->_children));
+        _It  end =   _end<_It>(*(node._parent->_children));
         while (&(*iter) != &node)
             ++iter;
 
         // Sibling with data
-        auto end = node._parent->_children->cend();
         for (++iter; iter != end; ++iter)
         {
             if (iter->_children)
-                return _first(*iter); // Search down the sibling branch
+                return _down<_It>(*iter); // Search down the sibling branch
             else
             {
                 if (iter->_data->size() != 0U)
@@ -314,39 +312,7 @@ const node_t<_Tc, _Td, _DIM> * _next(const node_t<_Tc, _Td, _DIM>& node) noexcep
         }
 
         // Siblings of parent
-        return _next(*(node._parent));
-    }
-
-
-/*
-    Goto the previous data holding node (with data; neighbour in direction last --> first)
-*/
-template<class _Tc, class _Td, size_t _DIM>
-const node_t<_Tc, _Td, _DIM> * _previous(const node_t<_Tc, _Td, _DIM>& node) noexcept
-    {
-        if (node._parent == nullptr)
-            return nullptr;
-
-        // Find node
-        auto iter = node._parent->_children->crbegin();
-        while (&(*iter) != &node)
-            ++iter;
-
-        // Sibling with data
-        auto end = node._parent->_children->crend();
-        for (++iter; iter != end; ++iter)
-        {
-            if (iter->_children)
-                return _last(*iter); // Search down the sibling branch
-            else
-            {
-                if (iter->_data->size() != 0U)
-                    return &(*iter);
-            }
-        }
-
-        // Siblings of parent
-        return _previous(*(node._parent));
+        return _further<_It>(*(node._parent));
     }
 
 
@@ -423,7 +389,7 @@ class cmap
                 {
                     if (++_elem == _node->_data->size())
                     {
-                        _node = _cmapbase::_next(*_node);
+                        _node = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*_node);
                         _elem = 0U;
                     }
                 }
@@ -432,7 +398,7 @@ class cmap
                 {
                     if (_elem == 0U)
                     {
-                        _node = _cmapbase::_previous(*_node);
+                        _node = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*_node);
                         _elem = (_node) ? _node->_data->size() - 1U : 0U;
                     }
                     else
@@ -461,13 +427,24 @@ class cmap
         typedef _iterator_base<const pair_t, 1> const_iterator;
         typedef _iterator_base<const pair_t, 0> const_reverse_iterator;
 
-        const_iterator begin() const noexcept { return (empty()) ? end() : const_iterator(_cmapbase::_first(*_root), 0U); }
-        const_iterator end()   const noexcept { return const_iterator(nullptr, 0U); }
+        const_iterator begin() const noexcept
+        {
+            if (empty())
+                return end();
+            const node_t * first = _cmapbase::_down<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*_root);
+            return const_iterator(first, 0U);
+        }
+
+        const_iterator end() const noexcept
+        {
+            return const_iterator(nullptr, 0U);
+        }
+
         const_reverse_iterator rbegin() const noexcept
         {
             if (empty())
                 return rend();
-            const node_t * last = _cmapbase::_last(*_root);
+            const node_t * last = _cmapbase::_down<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*_root);
             return const_reverse_iterator(last, last->_data->size() - 1U);
         }
 
@@ -476,101 +453,6 @@ class cmap
             return const_reverse_iterator(nullptr, 0U);
         }
 
-
-/*
-        class const_iterator
-        {
-            private:
-
-                const node_t * _node;
-                size_t         _elem;
-
-            public:
-
-                const_iterator(const node_t * node_in, const size_t elem_in) : _node(node_in), _elem(elem_in) {}
-                const_iterator(const const_iterator& in) : _node(in._node), _elem(in._elem) {}
-                const_iterator& operator++() { this->update(); return *this; }
-                const_iterator  operator++(int) { const_iterator returnval = *this; this->update(); return returnval; }
-                const pair_t&   operator*()  { return (*(_node->_data))[_elem]; }
-                const pair_t&   operator->() { return (*(_node->_data))[_elem]; }
-                bool            operator==(const_iterator other) const noexcept { return (_node == other._node) && (_elem == other._elem); }
-                bool            operator!=(const_iterator other) const noexcept { return (_node != other._node) || (_elem != other._elem); }
-
-            private:
-
-                void update()
-                {
-                    if (++_elem == _node->_data->size())
-                    {
-                        _elem = 0U;
-                        _node = _cmapbase::_next(*_node);
-                    }
-                }
-
-        };
-
-        const_iterator begin() const noexcept
-        {
-            if (empty())
-                return end();
-            return const_iterator(_cmapbase::_first(*_root), 0U);
-        }
-
-        const_iterator end() const noexcept
-        {
-            return const_iterator(nullptr, 0U);
-        }
-
-    public:
-
-        class reverse_iterator
-        {
-            private:
-
-                const node_t * _node;
-                size_t         _elem;
-
-            public:
-
-                reverse_iterator(const node_t * node_in, const size_t elem_in) : _node(node_in), _elem(elem_in) {}
-                reverse_iterator(const reverse_iterator& in) : _node(in._node), _elem(in._elem) {}
-                reverse_iterator& operator++() { this->update(); return *this; }
-                reverse_iterator  operator++(int) { reverse_iterator returnval = *this; this->update(); return returnval; }
-                const pair_t&     operator*()  { return (*(_node->_data))[_elem]; }
-                const pair_t&     operator->() { return (*(_node->_data))[_elem]; }
-                bool              operator==(reverse_iterator other) const noexcept { return (_node == other._node) && (_elem == other._elem); }
-                bool              operator!=(reverse_iterator other) const noexcept { return (_node != other._node) || (_elem != other._elem); }
-
-            private:
-
-                void update()
-                {
-                    if (_elem == 0U)
-                    {
-                        _node = _cmapbase::_previous(*_node);
-                        _elem = (_node) ? _node->_data->size() - 1U : 0U;
-                    }
-                    else
-                    {
-                        --_elem;
-                    }
-                }
-
-        };
-
-        reverse_iterator rbegin() const noexcept
-        {
-            if (empty())
-                return rend();
-            const node_t * right = _cmapbase::_last(*_root);
-            return reverse_iterator(right, right->_data->size() - 1U);
-        }
-
-        reverse_iterator rend() const noexcept
-        {
-            return reverse_iterator(nullptr, 0U);
-        }
-*/
 
 };
 
