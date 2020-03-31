@@ -86,6 +86,19 @@ inline node_t<_Tc, _Td, _DIM>& _child(const node_t<_Tc, _Td, _DIM>& node, const 
 
 
 /*
+    Return the node to which coordinates correspond
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline node_t<_Tc, _Td, _DIM>& _find_node(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+    {
+        if (node._children)
+            return _find_node(_child(node, coordinates), coordinates);
+        else
+            return node;
+    }
+
+
+/*
     Find the matching node for novel recursively, and insert novel in the matching node
 */
 template<class _Tc, class _Td, size_t _DIM>
@@ -391,7 +404,7 @@ class cmap
             assert(_cmapbase::_template_checks(static_cast<_Tc>(7U), _DIM));
             _num_shifts = 0U;
             _size = 0U;
-            _root.reset(nullptr);
+            if (_root){ _root.reset(nullptr); }
             _root = std::make_unique<node_t>();
             _root->_data     = std::make_unique<std::vector<pair_t>>();
             _root->_children = nullptr;
