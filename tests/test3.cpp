@@ -68,7 +68,7 @@ int main()
 
     print_info(my_map);
 
-    while (my_map.size() <= 8U)
+    while (my_map.size() <= 12U)
     {
         coord_t coord = { 2048 + co(gen), 2048 + co(gen), 2048 + co(gen) };
         data_type data = { rad(gen) };
@@ -82,11 +82,16 @@ int main()
 
     print_info(my_map);
 
-    while (my_map.size() > 8U)
-    {
-        size_t num_removed = my_map.erase((*(my_map.begin())).first);
-        std::cout << "Removed " << num_removed << " elements. " << std::endl;
-    }
+    size_t num_removed = my_map.erase(my_map.begin());
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(iterator). " << std::endl;
+    num_removed = my_map.erase(my_map.cbegin());
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_iterator). " << std::endl;
+    num_removed = my_map.erase(my_map.rbegin());
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(reverse_iterator). " << std::endl;
+    num_removed = my_map.erase(my_map.crbegin());
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_reverse_iterator). " << std::endl;
+    num_removed = my_map.erase((*(my_map.begin())).first);
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(coord_t). " << std::endl;
 
     const node_t * node = my_map.begin().node();
     if (node->_level != 31U)

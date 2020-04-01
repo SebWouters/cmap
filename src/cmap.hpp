@@ -383,7 +383,7 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
     Simplify the tree (after erase)
 */
 template<class _Tc, class _Td, size_t _DIM>
-inline void _simplify(node_t<_Tc, _Td, _DIM>& leaf)
+inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
         using node_t = node_t<_Tc, _Td, _DIM>;
@@ -435,6 +435,7 @@ class cmap {
                 template <class T = void>
                 inline typename std::enable_if<_Forward == 1, T>::type update()
                 {
+                    assert(_node);
                     if (++_elem == _node->_data->size())
                     {
                         _node = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*_node);
@@ -445,6 +446,7 @@ class cmap {
                 template <class T = void>
                 inline typename std::enable_if<_Forward == 0, T>::type update()
                 {
+                    assert(_node);
                     if (_elem == 0U)
                     {
                         _node = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*_node);
@@ -466,16 +468,16 @@ class cmap {
                 size_t elem() const { return _elem; }
 
                 template <class T = const pair_t&>
-                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator*() { return (*(_node->_data))[_elem]; }
+                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator*() const { return (*(_node->_data))[_elem]; }
 
                 template <class T = std::pair<const coord_t&, _Td&>>
-                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator*() { return { (*(_node->_data))[_elem].first, (*(_node->_data))[_elem].second }; }
+                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator*() const { return { (*(_node->_data))[_elem].first, (*(_node->_data))[_elem].second }; }
 
                 template <class T = const pair_t&>
-                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator->() { return (*(_node->_data))[_elem]; }
+                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator->() const { return (*(_node->_data))[_elem]; }
 
                 template <class T = std::pair<const coord_t&, _Td&>>
-                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator->() { return { (*(_node->_data))[_elem].first, (*(_node->_data))[_elem].second }; }
+                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator->() const { return { (*(_node->_data))[_elem].first, (*(_node->_data))[_elem].second }; }
 
                 operator _iterator_base<const _Type, _Forward>() const { return _iterator_base<const _Type, _Forward>(_node, _elem); }
         };
@@ -599,6 +601,18 @@ class cmap {
             leaf._data->erase(pos);
             --_size;
             _cmapbase::_simplify(leaf);
+            assert(_size == _cmapbase::_size(*_root));
+            return 1U;
+        }
+
+        template <class _Type, size_t _Forward>
+        inline size_t erase(const _iterator_base<_Type, _Forward>& iter)
+        {
+            if (iter.node() == nullptr)
+                return 0U;
+            iter.node()->_data->erase(iter.node()->_data->begin() + iter.elem());
+            --_size;
+            _cmapbase::_simplify(*(iter.node())); // Prevents easy sequence deletion
             assert(_size == _cmapbase::_size(*_root));
             return 1U;
         }
