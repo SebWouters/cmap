@@ -116,6 +116,54 @@ inline size_t _position(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc
 
 
 /*
+    Get the number of elements the node and its children hold
+*/
+template <class _Tc, class _Td, size_t _DIM>
+inline size_t _size(const node_t<_Tc, _Td, _DIM>& node)
+    {
+        using node_t = node_t<_Tc, _Td, _DIM>;
+
+        if (node._data)
+        {
+            assert(!node._children);
+            return node._data->size();
+        }
+        else
+        {
+            assert(node._children);
+            size_t number = 0U;
+            for (const node_t& child : *(node._children))
+                number += _size(child);
+            return number;
+        }
+    }
+
+
+/*
+    Collect the data items from a node and its children
+*/
+template <class _Tc, class _Td, size_t _DIM>
+inline void _collect(node_t<_Tc, _Td, _DIM>& node, std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>& result)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+        using node_t = node_t<_Tc, _Td, _DIM>;
+
+        if (node._data)
+        {
+            assert(!node._children);
+            for (pair_t& item : *(node._data))
+                result.push_back(std::move(item));
+        }
+        else
+        {
+            assert(node._children);
+            for (node_t& child : *(node._children))
+                _collect(child, result);
+        }
+    }
+
+
+/*
     Insert novel in the node
 */
 template<class _Tc, class _Td, size_t _DIM>
@@ -338,6 +386,32 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
     }
 
 
+/*
+    Simplify the tree (after erase)
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline void _simplify(node_t<_Tc, _Td, _DIM>& leaf)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+        using node_t = node_t<_Tc, _Td, _DIM>;
+
+        assert(leaf._data);
+
+        if (leaf._parent == nullptr)
+            return;
+
+        if (_size(*(leaf._parent)) <= (1U << _DIM))
+        {
+            node_t& parent = *(leaf._parent); // Need to make a copy for the _simplify call
+            parent._data = std::make_unique<std::vector<pair_t>>();
+            for (node_t& sibling : *(parent._children))
+                _collect(sibling, *(parent._data));
+            parent._children.reset(nullptr);
+            _simplify(parent);
+        }
+    }
+
+
 } } // End of namespaces _cmapbase and {anonymous}
 
 
@@ -345,9 +419,13 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
 template<class _Tc, class _Td, size_t _DIM>
 class cmap {
 
-    private:
+    public:
 
-        using node_t = _cmapbase::node_t<_Tc, _Td, _DIM>;
+        typedef std::array<_Tc, _DIM>             coord_t;
+        typedef std::pair<coord_t, _Td>           pair_t;
+        typedef _cmapbase::node_t<_Tc, _Td, _DIM> node_t;
+
+    private:
 
         uint8_t _num_shifts;
         size_t  _size;
@@ -393,13 +471,13 @@ class cmap {
                 _Type&          operator->() { return (*(_node->_data))[_elem]; }
                 bool            operator==(_iterator_base other) const noexcept { return (_node == other._node) && (_elem == other._elem); }
                 bool            operator!=(_iterator_base other) const noexcept { return (_node != other._node) || (_elem != other._elem); }
+                const node_t * node() const { return _node; }
+                size_t elem() const { return _elem; }
 
         };
 
     public:
 
-        typedef std::array<_Tc, _DIM>           coord_t;
-        typedef std::pair<coord_t, _Td>         pair_t;
         typedef _iterator_base<const pair_t, 1> const_iterator;
         typedef _iterator_base<const pair_t, 0> const_reverse_iterator;
 
@@ -498,13 +576,28 @@ class cmap {
             return (*(leaf._data))[pos];
         }
 
-        inline bool contains(const coord_t& coord_in)
+        inline bool contains(const coord_t& coord_in) const
         {
             coord_t coord = coord_in;
             _cmapbase::_shift(coord, _num_shifts);
             const node_t& leaf = _cmapbase::_leaf(*_root, coord);
             const size_t  pos  = _cmapbase::_position(leaf, coord);
             return (pos == (1U << _DIM)) ? false : true;
+        }
+
+        inline size_t erase(const coord_t& coord_in)
+        {
+            coord_t coord = coord_in;
+            _cmapbase::_shift(coord, _num_shifts);
+            node_t& leaf = _cmapbase::_leaf(*_root, coord);
+            size_t  pos  = _cmapbase::_position(leaf, coord);
+            if (pos == (1U << _DIM))
+                return 0U;
+            leaf._data->erase(leaf._data->begin() + pos);
+            --_size;
+            _cmapbase::_simplify(leaf);
+            assert(_size == _cmapbase::_size(*_root));
+            return 1U;
         }
 
 
