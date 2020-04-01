@@ -30,9 +30,9 @@ int main()
     {
         const uint32_t coo1[3] = { dis(gen), dis(gen), dis(gen) };
         uint32_t perm[3];
-        cmap::permute<uint32_t, 3>(coo1, perm);
+        tools::permute<uint32_t, 3>(coo1, perm);
         uint32_t coo2[3];
-        cmap::unravel<uint32_t, 3>(perm, coo2);
+        tools::unravel<uint32_t, 3>(perm, coo2);
 
         equal = equal && (coo1[0] == coo2[0])
                       && (coo1[1] == coo2[1])

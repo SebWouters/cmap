@@ -90,7 +90,7 @@ int main()
            << "*/" << std::endl
            << std::endl
            << std::endl
-           << "namespace cmap" << std::endl
+           << "namespace tools" << std::endl
            << "{" << std::endl
            << std::endl
            << "template<class _Type, size_t _DIM>" << std::endl
