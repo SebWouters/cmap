@@ -19,7 +19,7 @@ struct data_type
     double radius;
 };
 
-using octomap = cmap<uint32_t, data_type, 3>;
+using octomap = tools::cmap<uint32_t, data_type, 3>;
 using coord_t = octomap::coord_t;
 using  pair_t = octomap::pair_t;
 

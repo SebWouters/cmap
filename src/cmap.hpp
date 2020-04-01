@@ -18,8 +18,9 @@
 #include <type_traits>
 
 
-namespace _cmapbase
-{
+namespace tools {
+
+namespace { namespace _cmapbase {
 
 
 /*
@@ -89,17 +90,33 @@ inline node_t<_Tc, _Td, _DIM>& _child(const node_t<_Tc, _Td, _DIM>& node, const 
     Return the node to which coordinates correspond
 */
 template<class _Tc, class _Td, size_t _DIM>
-inline node_t<_Tc, _Td, _DIM>& _find_node(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+inline node_t<_Tc, _Td, _DIM>& _leaf(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
     {
         if (node._children)
-            return _find_node(_child(node, coordinates), coordinates);
+            return _leaf(_child(node, coordinates), coordinates);
         else
             return node;
     }
 
 
 /*
-    Find the matching node for novel recursively, and insert novel in the matching node
+    Find a position of coordinates within a node's data
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline size_t _position(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+    {
+        assert(node._data);
+        for (size_t pos = 0U; pos < node._data->size(); ++pos)
+        {
+            if ((*(node._data))[pos].first == coordinates)
+                return pos;
+        }
+        return (1U << _DIM); // Not found
+    }
+
+
+/*
+    Insert novel in the node
 */
 template<class _Tc, class _Td, size_t _DIM>
 inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::pair<std::array<_Tc, _DIM>, _Td>& novel)
@@ -144,7 +161,6 @@ inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::pair<std::array<_
         }
         node._data.reset(nullptr);
         return _insert(_child(node, novel.first), novel);
-
     }
 
 
@@ -231,26 +247,6 @@ inline size_t _resize(node_t<_Tc, _Td, _DIM>& node)
         assert(node._level != 0U);
         node._level--;
         return num_removed;
-    }
-
-
-/*
-    Find a key
-*/
-template<class _Tc, class _Td, size_t _DIM>
-inline std::pair<const node_t<_Tc, _Td, _DIM> *, size_t> _find(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
-    {
-        if (node._children)
-            return _find(_child(node, coordinates), coordinates);
-        else
-        {
-            for (size_t pos = 0U; pos < node._data->size(); ++pos)
-            {
-                if ((*(node._data))[pos].first == coordinates)
-                    return { &node, pos };
-            }
-            return { &node, (1U << _DIM) }; // Not found
-        }
     }
 
 
@@ -342,71 +338,20 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
     }
 
 
-} // End of namespace _cmapbase
+} } // End of namespaces _cmapbase and {anonymous}
 
 
 
 template<class _Tc, class _Td, size_t _DIM>
-class cmap
-{
-
-    public:
-
-        using coord_t = std::array<_Tc, _DIM>;
-        using pair_t  = std::pair<coord_t, _Td>;
-        using node_t  = _cmapbase::node_t<_Tc, _Td, _DIM>;
+class cmap {
 
     private:
+
+        using node_t = _cmapbase::node_t<_Tc, _Td, _DIM>;
 
         uint8_t _num_shifts;
         size_t  _size;
         std::unique_ptr<node_t> _root;
-
-    public:
-
-        cmap() { clear(); }
-
-        ~cmap() {}
-
-        cmap(const cmap&) = delete;
-        cmap(cmap&&) = delete;
-        cmap& operator=(const cmap&) = delete;
-        cmap& operator=(cmap&&) = delete;
-
-        void insert(const coord_t& coord_in, const _Td& data_in)
-        {
-            pair_t novel = { coord_in, data_in };
-            _cmapbase::_shift(novel.first, _num_shifts);
-            _size += _cmapbase::_insert(_find_node(*_root, novel.first), novel);
-        }
-
-        void resize()
-        {
-            _size -= _cmapbase::_resize(*_root);
-            ++_num_shifts;
-        }
-
-        inline uint8_t num_resizes() const { return _num_shifts; }
-
-        inline size_t size() const { return _size; }
-
-        inline bool empty() const { return _size == 0U; }
-
-        inline void clear()
-        {            
-            assert(_cmapbase::_template_checks(static_cast<_Tc>(7U), _DIM));
-            _num_shifts = 0U;
-            _size = 0U;
-            if (_root){ _root.reset(nullptr); }
-            _root = std::make_unique<node_t>();
-            _root->_data     = std::make_unique<std::vector<pair_t>>();
-            _root->_children = nullptr;
-            _root->_parent   = nullptr;
-            _root->_level    = 8U * sizeof(_Tc) - 1U;
-            _root->_data->reserve(1U << _DIM);
-        }
-
-    private:
 
         template<class _Type, size_t _Forward>
         class _iterator_base
@@ -453,10 +398,54 @@ class cmap
 
     public:
 
+        typedef std::array<_Tc, _DIM>           coord_t;
+        typedef std::pair<coord_t, _Td>         pair_t;
         typedef _iterator_base<const pair_t, 1> const_iterator;
         typedef _iterator_base<const pair_t, 0> const_reverse_iterator;
 
-        const_iterator begin() const noexcept
+        cmap() { clear(); }
+
+        ~cmap() {}
+
+        cmap(const cmap&) = delete;
+        cmap(cmap&&) = delete;
+        cmap& operator=(const cmap&) = delete;
+        cmap& operator=(cmap&&) = delete;
+
+        inline void insert(const coord_t& coord_in, const _Td& data_in)
+        {
+            pair_t novel = { coord_in, data_in };
+            _cmapbase::_shift(novel.first, _num_shifts);
+            _size += _cmapbase::_insert(_leaf(*_root, novel.first), novel);
+        }
+
+        inline void resize()
+        {
+            _size -= _cmapbase::_resize(*_root);
+            ++_num_shifts;
+        }
+
+        inline uint8_t num_resizes() const { return _num_shifts; }
+
+        inline size_t size() const { return _size; }
+
+        inline bool empty() const { return _size == 0U; }
+
+        inline void clear()
+        {
+            assert(_cmapbase::_template_checks(static_cast<_Tc>(7U), _DIM));
+            _num_shifts = 0U;
+            _size = 0U;
+            if (_root){ _root.reset(nullptr); }
+            _root = std::make_unique<node_t>();
+            _root->_data     = std::make_unique<std::vector<pair_t>>();
+            _root->_children = nullptr;
+            _root->_parent   = nullptr;
+            _root->_level    = 8U * sizeof(_Tc) - 1U;
+            _root->_data->reserve(1U << _DIM);
+        }
+
+        inline const_iterator begin() const noexcept
         {
             if (empty())
                 return end();
@@ -464,12 +453,12 @@ class cmap
             return const_iterator(first, 0U);
         }
 
-        const_iterator end() const noexcept
+        inline const_iterator end() const noexcept
         {
             return const_iterator(nullptr, 0U);
         }
 
-        const_reverse_iterator rbegin() const noexcept
+        inline const_reverse_iterator rbegin() const noexcept
         {
             if (empty())
                 return rend();
@@ -477,47 +466,52 @@ class cmap
             return const_reverse_iterator(last, last->_data->size() - 1U);
         }
 
-        const_reverse_iterator rend() const noexcept
+        inline const_reverse_iterator rend() const noexcept
         {
             return const_reverse_iterator(nullptr, 0U);
         }
 
-        const_iterator find(const coord_t& coord_in) const
+        inline const_iterator find(const coord_t& coord_in) const
         {
             coord_t coord = coord_in;
             _cmapbase::_shift(coord, _num_shifts);
-            std::pair<const node_t *, size_t> location = _cmapbase::_find(*_root, coord);
-            if (location.second == (1U << _DIM))
+            const node_t& leaf = _cmapbase::_leaf(*_root, coord);
+            const size_t  pos  = _cmapbase::_position(leaf, coord);
+            if (pos == (1U << _DIM))
                 return const_iterator(nullptr, 0U);
             else
-                return const_iterator(location.first, location.second);
+                return const_iterator(&leaf, pos);
         }
 
-        _Td& operator[](const coord_t& coord_in)
+        inline _Td& operator[](const coord_t& coord_in)
         {
             coord_t coord = coord_in;
             _cmapbase::_shift(coord, _num_shifts);
-            std::pair<const node_t *, size_t> location = _cmapbase::_find(*_root, coord);
-            if (location.second == (1U << _DIM))
+            node_t& leaf = _cmapbase::_leaf(*_root, coord);
+            size_t  pos  = _cmapbase::_position(leaf, coord);
+            if (pos == (1U << _DIM))
             {
-                _size += _cmapbase::_insert(*(location.first), { coord, _Td() });
-                location = _cmapbase::_find(*(location.first), coord);
+                _size += _cmapbase::_insert(leaf, { coord, _Td() });
+                leaf   = _cmapbase::_leaf(leaf, coord);
+                pos    = _cmapbase::_position(leaf, coord);
             }
-            return (*(location.first->_data))[location.second];
+            return (*(leaf._data))[pos];
         }
 
-        bool contains(const coord_t& coord_in)
+        inline bool contains(const coord_t& coord_in)
         {
             coord_t coord = coord_in;
             _cmapbase::_shift(coord, _num_shifts);
-            std::pair<const node_t *, size_t> location = _cmapbase::_find(*_root, coord);
-            return (location.second == (1U << _DIM)) ? false : true;
+            const node_t& leaf = _cmapbase::_leaf(*_root, coord);
+            const size_t  pos  = _cmapbase::_position(leaf, coord);
+            return (pos == (1U << _DIM)) ? false : true;
         }
 
 
 };
 
 
+} // End of namespace tools
 
 
 
