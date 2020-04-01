@@ -380,9 +380,9 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
 
 
 /*
-    Simplify the tree (after erase)
+    Simplify the tree (after erase; bottom-up)
 */
-template<class _Tc, class _Td, size_t _DIM>
+/*template<class _Tc, class _Td, size_t _DIM>
 inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
@@ -401,6 +401,33 @@ inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
                 _collect(sibling, *(parent._data));
             parent._children.reset(nullptr);
             _simplify(parent);
+        }
+    }*/
+
+
+/*
+    Simplify the tree (after erase; top-down)
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline void _pruning(node_t<_Tc, _Td, _DIM>& node)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+        using node_t = node_t<_Tc, _Td, _DIM>;
+
+        if (node._children)
+        {
+            if (_size(node) <= (1U << _DIM))
+            {
+                node._data = std::make_unique<std::vector<pair_t>>();
+                for (node_t& child : *(node._children))
+                    _collect(child, *(node._data));
+                node._children.reset(nullptr);
+            }
+            else
+            {
+                for (node_t& child : *(node._children))
+                    _pruning(child);
+            }
         }
     }
 
@@ -600,7 +627,8 @@ class cmap {
                 return 0U;
             leaf._data->erase(pos);
             --_size;
-            _cmapbase::_simplify(leaf);
+          //_cmapbase::_simplify(leaf);
+            _cmapbase::_pruning(*_root);
             assert(_size == _cmapbase::_size(*_root));
             return 1U;
         }
@@ -612,10 +640,43 @@ class cmap {
                 return 0U;
             iter.node()->_data->erase(iter.node()->_data->begin() + iter.elem());
             --_size;
-            _cmapbase::_simplify(*(iter.node())); // Prevents easy sequence deletion
+          //_cmapbase::_simplify(*(iter.node()));
+            _cmapbase::_pruning(*_root);
             assert(_size == _cmapbase::_size(*_root));
             return 1U;
         }
+
+      /*template <class _Type, size_t _Forward>
+        inline size_t erase(const _iterator_base<_Type, _Forward>& first, const _iterator_base<_Type, _Forward>& stop)
+        {
+            auto end  = _iterator_base<_Type, _Forward>(nullptr, 0U);
+            auto iter = _iterator_base<_Type, _Forward>(first);
+            size_t number = 0U;
+            while ((iter != end) && (iter != stop))
+            {
+                if (_Forward)
+                {
+                    auto dbegin = iter.node()->_data->begin() + iter.elem();
+                    auto dend   = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() : iter.node()->_data->begin();
+                    number += dend - dbegin;
+                    iter.node()->_data->erase(dbegin, dend);
+                    const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*iter.node());
+                    iter = _iterator_base<_Type, _Forward>(next, 0U);
+                }
+                else
+                {
+                    auto dbegin = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() + 1U : iter.node()->_data->begin();
+                    auto dend   = iter.node()->_data->begin() + iter.elem() + 1U;
+                    number += dend - dbegin;
+                    iter.node()->_data->erase(dbegin, dend);
+                    const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*iter.node());
+                    iter = _iterator_base<_Type, _Forward>(next, (next) ? next->_data->size() - 1U : 0U);
+                }
+            }
+            _size -= number;
+            _cmapbase::_pruning(*_root);
+            return number;
+        }*/
 
 
 };

@@ -83,13 +83,13 @@ int main()
     print_info(my_map);
 
     size_t num_removed = my_map.erase(my_map.begin());
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(iterator). " << std::endl;
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(iterator)." << std::endl;
     num_removed = my_map.erase(my_map.cbegin());
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_iterator). " << std::endl;
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_iterator)." << std::endl;
     num_removed = my_map.erase(my_map.rbegin());
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(reverse_iterator). " << std::endl;
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(reverse_iterator)." << std::endl;
     num_removed = my_map.erase(my_map.crbegin());
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_reverse_iterator). " << std::endl;
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_reverse_iterator)." << std::endl;
     num_removed = my_map.erase((*(my_map.begin())).first);
     std::cout << "Removed " << num_removed << " elements via cmap::erase(coord_t). " << std::endl;
 
@@ -100,6 +100,26 @@ int main()
         return 249;
 
     print_info(my_map);
+/*
+    while (my_map.size() <= 128U)
+    {
+        coord_t coord = { 4096 + 16 * co(gen) + co(gen), 4096 + 16 * co(gen) + co(gen), 4096 + 16 * co(gen) + co(gen) };
+        data_type data = { rad(gen) };
+        my_map.insert(coord, data);
+        std::cout << "Novel = { " << coord[0] << ", " << coord[1] << ", " << coord[2] << " } and rad = " << data.radius << std::endl;
+    }
+
+    auto iter1 = my_map.begin();
+    for (uint32_t cnt = 0U; cnt < 4U; ++cnt)
+        ++iter1;
+    auto iter2 = iter1;
+    for (uint32_t cnt = 0U; cnt < 120U; ++cnt)
+        ++iter2;
+
+    num_removed = my_map.erase(iter1, iter2);
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(iterator, iterator)." << std::endl;
+
+    print_info(my_map);*/
 
     return 0;
 }
