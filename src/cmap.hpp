@@ -22,9 +22,21 @@ namespace tools {
 
 namespace { namespace _cmapbase {
 
+template<class _Tc, size_t _DIM, class _Td>
+struct node_t;
+
+template<class _Tc, size_t _DIM, class _Td>
+using _data_vec = std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>;
+
+template<class _Tc, size_t _DIM, class _Td>
+using _node_arr = std::array<node_t<_Tc, _DIM, _Td>, (1U << _DIM)>;
+
+template<class _Tc, size_t _DIM, class _Td>
+using _data_itr = typename _data_vec<_Tc, _DIM, _Td>::iterator;
+
 
 /*
-    node_t<_Tc, _Td, _DIM>:
+    node_t<_Tc, _DIM, _Td>:
         * holds one of _children or _data, but not both
         * key = coordinates (std::array<_Tc, _DIM>)
         * value = data (_Td)
@@ -32,13 +44,13 @@ namespace { namespace _cmapbase {
         * _DIM <= 8U
         * _level indicates which bit of _Tc to check in _child(...)
 */
-template<class _Tc, class _Td, size_t _DIM>
+template<class _Tc, size_t _DIM,  class _Td>
 struct node_t
     {
-        node_t<_Tc, _Td, _DIM> *                                             _parent;
-        std::unique_ptr<std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>>  _data;
-        std::unique_ptr<std::array<node_t<_Tc, _Td, _DIM>, (1U << _DIM)>>    _children;
-        uint8_t                                                              _level;
+        node_t<_Tc, _DIM, _Td> *                     _parent;
+        std::unique_ptr<_data_vec<_Tc, _DIM, _Td>>   _data;
+        std::unique_ptr<_node_arr<_Tc, _DIM, _Td>>   _children;
+        uint8_t                                      _level;
     };
 
 
@@ -71,8 +83,8 @@ inline constexpr void _shift(std::array<_Tc, _DIM>& coordinates) noexcept
 /*
     Return the child of node to which coordinates correspond
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline node_t<_Tc, _Td, _DIM>& _child(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+template<class _Tc, size_t _DIM, class _Td>
+inline node_t<_Tc, _DIM, _Td>& _child(const node_t<_Tc, _DIM, _Td>& node, const std::array<_Tc, _DIM>& coordinates)
     {
         assert(node._children);
         uint32_t child_idx = 0U;
@@ -87,8 +99,8 @@ inline node_t<_Tc, _Td, _DIM>& _child(const node_t<_Tc, _Td, _DIM>& node, const 
 /*
     Return the node to which coordinates correspond
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline node_t<_Tc, _Td, _DIM>& _leaf(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+template<class _Tc, size_t _DIM, class _Td>
+inline node_t<_Tc, _DIM, _Td>& _leaf(node_t<_Tc, _DIM, _Td>& node, const std::array<_Tc, _DIM>& coordinates)
     {
         if (node._children)
             return _leaf(_child(node, coordinates), coordinates);
@@ -100,10 +112,10 @@ inline node_t<_Tc, _Td, _DIM>& _leaf(node_t<_Tc, _Td, _DIM>& node, const std::ar
 /*
     Find a position of coordinates within a node's data
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline typename std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>::iterator _pair(const node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coordinates)
+template<class _Tc, size_t _DIM, class _Td>
+inline _data_itr<_Tc, _DIM, _Td> _pair(const node_t<_Tc, _DIM, _Td>& node, const std::array<_Tc, _DIM>& coordinates)
     {
-        using _data_iter = typename std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>::iterator;
+        using _data_iter = _data_itr<_Tc, _DIM, _Td>;
 
         assert(node._data);
         _data_iter iter = node._data->begin();
@@ -118,9 +130,9 @@ inline typename std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>::iterator _pa
     Get the number of elements the node and its children hold
 */
 template <class _Tc, class _Td, size_t _DIM>
-inline size_t _size(const node_t<_Tc, _Td, _DIM>& node)
+inline size_t _size(const node_t<_Tc, _DIM, _Td>& node)
     {
-        using node_t = node_t<_Tc, _Td, _DIM>;
+        using node_t = node_t<_Tc, _DIM, _Td>;
 
         if (node._data)
         {
@@ -142,10 +154,10 @@ inline size_t _size(const node_t<_Tc, _Td, _DIM>& node)
     Collect the data items from a node and its children
 */
 template <class _Tc, class _Td, size_t _DIM>
-inline void _collect(node_t<_Tc, _Td, _DIM>& node, std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>& result)
+inline void _collect(node_t<_Tc, _DIM, _Td>& node, _data_vec<_Tc, _DIM, _Td>& result)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
+        using node_t = node_t<_Tc, _DIM, _Td>;
 
         if (node._data)
         {
@@ -165,11 +177,11 @@ inline void _collect(node_t<_Tc, _Td, _DIM>& node, std::vector<std::pair<std::ar
 /*
     Simplify the tree (after erase; bottom-up)
 */
-/*template<class _Tc, class _Td, size_t _DIM>
-inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
+/*template<class _Tc, size_t _DIM, class _Td>
+inline void _simplify(const node_t<_Tc, _DIM, _Td>& leaf)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
+        using node_t = node_t<_Tc, _DIM, _Td>;
 
         assert(leaf._data);
 
@@ -191,11 +203,11 @@ inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
 /*
     Simplify the tree (after erase; top-down)
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline void _pruning(node_t<_Tc, _Td, _DIM>& node)
+template<class _Tc, size_t _DIM, class _Td>
+inline void _pruning(node_t<_Tc, _DIM, _Td>& node)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
+        using node_t = node_t<_Tc, _DIM, _Td>;
 
         if (node._children)
         {
@@ -218,11 +230,11 @@ inline void _pruning(node_t<_Tc, _Td, _DIM>& node)
 /*
     Split a node into children and distribute data
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline void _split(node_t<_Tc, _Td, _DIM>& node)
+template<class _Tc, size_t _DIM, class _Td>
+inline void _split(node_t<_Tc, _DIM, _Td>& node)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
+        using node_t = node_t<_Tc, _DIM, _Td>;
 
         assert(node._level != 0U);
         const uint8_t child_level = node._level - 1U;
@@ -244,8 +256,8 @@ inline void _split(node_t<_Tc, _Td, _DIM>& node)
 /*
     Insert (coord, data) in the node
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coord, const _Td& data)
+template<class _Tc, size_t _DIM, class _Td>
+inline size_t _insert(node_t<_Tc, _DIM, _Td>& node, const std::array<_Tc, _DIM>& coord, const _Td& data)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
 
@@ -278,7 +290,7 @@ inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>&
     Emplace (coord, args) in the node
 */
 template<class _Tc, size_t _DIM, class _Td, class ... _Ts>
-inline size_t _emplace(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coord, _Ts&& ... args)
+inline size_t _emplace(node_t<_Tc, _DIM, _Td>& node, const std::array<_Tc, _DIM>& coord, _Ts&& ... args)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
 
@@ -310,11 +322,11 @@ inline size_t _emplace(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>
 /*
     Resize the nodes recursively: coordinates are divided by two & colliding data is merged
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline size_t _resize(node_t<_Tc, _Td, _DIM>& node)
+template<class _Tc, size_t _DIM, class _Td>
+inline size_t _resize(node_t<_Tc, _DIM, _Td>& node)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
+        using node_t = node_t<_Tc, _DIM, _Td>;
 
         size_t num_removed = 0U;
         if (node._data)
@@ -416,7 +428,7 @@ inline typename std::enable_if<std::is_same<_It, typename _Ta::const_reverse_ite
     Search data down the tree
 */
 template<typename _It, class _Tc, class _Td, size_t _DIM>
-inline const node_t<_Tc, _Td, _DIM> * _down(const node_t<_Tc, _Td, _DIM>& node) noexcept
+inline const node_t<_Tc, _DIM, _Td> * _down(const node_t<_Tc, _DIM, _Td>& node) noexcept
     {
         if (node._children)
         {
@@ -447,7 +459,7 @@ inline const node_t<_Tc, _Td, _DIM> * _down(const node_t<_Tc, _Td, _DIM>& node) 
     Search following data
 */
 template<typename _It, class _Tc, class _Td, size_t _DIM>
-inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& node) noexcept
+inline const node_t<_Tc, _DIM, _Td> * _further(const node_t<_Tc, _DIM, _Td>& node) noexcept
     {
         if (node._parent == nullptr)
             return nullptr;
@@ -479,14 +491,14 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
 
 
 
-template<class _Tc, class _Td, size_t _DIM>
+template<class _Tc, size_t _DIM, class _Td>
 class cmap {
 
     public:
 
         typedef std::array<_Tc, _DIM>             coord_t;
         typedef std::pair<coord_t, _Td>           pair_t;
-        typedef _cmapbase::node_t<_Tc, _Td, _DIM> node_t;
+        typedef _cmapbase::node_t<_Tc, _DIM, _Td> node_t;
 
     private:
 

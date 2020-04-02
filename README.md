@@ -1,7 +1,7 @@
 cmap is a resizable coordinate map
 ----------------------------------
 
-```cmap<_Tc, _Td, _DIM>``` provides an implementation in the style of
+```cmap<_Tc, _DIM, _Td>``` provides an implementation in the style of
 ```std::map``` holding:
 
 * keys = coordinates (```std::array<_Tc, _DIM>```), associated with
@@ -15,7 +15,7 @@ a function ```void resize()```, which
 * divides each coordinate by two, and
 * merges values associated with adjusted coordinate collisions.
 
-An example can be found in ```tests/test2.cpp```.
+Examples can be found in ```tests/test{2,3,4,5}.cpp```.
 
 Work in progess.
 

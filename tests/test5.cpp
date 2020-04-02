@@ -23,7 +23,7 @@ struct data_type
     data_type(double _s, double _p, double _m) : s(_s), p(_p), m(_m) {}
 };
 
-using quadmap = tools::cmap<uint16_t, data_type, 2>;
+using quadmap = tools::cmap<uint16_t, 2, data_type>;
 
 void merge(data_type& left, const data_type& right)
 {

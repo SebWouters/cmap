@@ -20,7 +20,7 @@ struct data_type
     uint32_t num2;
 };
 
-using hexamap = tools::cmap<uint16_t, data_type, 4>;
+using hexamap = tools::cmap<uint16_t, 4, data_type>;
 using coord_t = hexamap::coord_t;
 using  pair_t = hexamap::pair_t;
 
