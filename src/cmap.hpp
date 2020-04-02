@@ -57,16 +57,14 @@ inline bool _template_checks(const _Tc seven, const size_t DIM)
 
 
 /*
-    Divide the elements of coordinates by power(2, amount)
+    Divide the elements of coordinates by 2
     Assumes _Tc to be of type uint{8,16,32,64,128,256}_t
 */
 template<class _Tc, size_t _DIM>
-inline constexpr void _shift(std::array<_Tc, _DIM>& coordinates, const uint8_t amount) noexcept
+inline constexpr void _shift(std::array<_Tc, _DIM>& coordinates) noexcept
     {
         for (_Tc& element : coordinates)
-        {
-            element = element >> amount;
-        }
+            element = element >> 1U;
     }
 
 
@@ -110,7 +108,7 @@ inline typename std::vector<std::pair<std::array<_Tc, _DIM>, _Td>>::iterator _pa
         assert(node._data);
         _data_iter iter = node._data->begin();
         _data_iter  end = node._data->end();
-        while (((*iter).first != coordinates) && (iter != end))
+        while ((iter != end) && ((*iter).first != coordinates))
             ++iter;
         return iter;
     }
@@ -165,34 +163,67 @@ inline void _collect(node_t<_Tc, _Td, _DIM>& node, std::vector<std::pair<std::ar
 
 
 /*
-    Insert novel in the node
+    Simplify the tree (after erase; bottom-up)
 */
-template<class _Tc, class _Td, size_t _DIM>
-inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::pair<std::array<_Tc, _DIM>, _Td>& novel)
+/*template<class _Tc, class _Td, size_t _DIM>
+inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
     {
         using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
         using node_t = node_t<_Tc, _Td, _DIM>;
 
-        assert(node._data);
+        assert(leaf._data);
 
-        // merge
-        for (pair_t& target : *(node._data))
+        if (leaf._parent == nullptr)
+            return;
+
+        if (_size(*(leaf._parent)) <= (1U << _DIM))
         {
-            if (target.first == novel.first)
+            node_t& parent = *(leaf._parent); // Need to make a copy for the _simplify call
+            parent._data = std::make_unique<std::vector<pair_t>>();
+            for (node_t& sibling : *(parent._children))
+                _collect(sibling, *(parent._data));
+            parent._children.reset(nullptr);
+            _simplify(parent);
+        }
+    }*/
+
+
+/*
+    Simplify the tree (after erase; top-down)
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline void _pruning(node_t<_Tc, _Td, _DIM>& node)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+        using node_t = node_t<_Tc, _Td, _DIM>;
+
+        if (node._children)
+        {
+            if (_size(node) <= (1U << _DIM))
             {
-                merge(target.second, novel.second);
-                return 0U;
+                node._data = std::make_unique<std::vector<pair_t>>();
+                for (node_t& child : *(node._children))
+                    _collect(child, *(node._data));
+                node._children.reset(nullptr);
+            }
+            else
+            {
+                for (node_t& child : *(node._children))
+                    _pruning(child);
             }
         }
+    }
 
-        // add
-        if (node._data->size() < (1U << _DIM))
-        {
-            node._data->push_back(std::move(novel));
-            return 1U;
-        }
 
-        // children
+/*
+    Split a node into children and distribute data
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline void _split(node_t<_Tc, _Td, _DIM>& node)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+        using node_t = node_t<_Tc, _Td, _DIM>;
+
         assert(node._level != 0U);
         const uint8_t child_level = node._level - 1U;
         node._children = std::make_unique<std::array<node_t, (1U << _DIM)>>();
@@ -207,7 +238,72 @@ inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::pair<std::array<_
         for (const pair_t& item : *(node._data))
             _child(node, item.first)._data->push_back(std::move(item));
         node._data.reset(nullptr);
-        return _insert(_child(node, novel.first), novel);
+    }
+
+
+/*
+    Insert (coord, data) in the node
+*/
+template<class _Tc, class _Td, size_t _DIM>
+inline size_t _insert(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coord, const _Td& data)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+
+        assert(node._data);
+
+        // merge
+        for (pair_t& target : *(node._data))
+        {
+            if (target.first == coord)
+            {
+                merge(target.second, data);
+                return 0U;
+            }
+        }
+
+        // add
+        if (node._data->size() < (1U << _DIM))
+        {
+            node._data->push_back(std::make_pair(coord, data));
+            return 1U;
+        }
+
+        // children
+        _split(node);
+        return _insert(_child(node, coord), coord, data);
+    }
+
+
+/*
+    Emplace (coord, args) in the node
+*/
+template<class _Tc, size_t _DIM, class _Td, class ... _Ts>
+inline size_t _emplace(node_t<_Tc, _Td, _DIM>& node, const std::array<_Tc, _DIM>& coord, _Ts&& ... args)
+    {
+        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
+
+        assert(node._data);
+
+        // merge
+        for (pair_t& target : *(node._data))
+        {
+            if (target.first == coord)
+            {
+                merge(target.second, { args ... });
+                return 0U;
+            }
+        }
+
+        // add
+        if (node._data->size() < (1U << _DIM))
+        {
+            node._data->emplace_back(std::piecewise_construct, std::forward_as_tuple(coord), std::forward_as_tuple(args ...));
+            return 1U;
+        }
+
+        // children
+        _split(node);
+        return _emplace(_child(node, coord), coord, args ...);
     }
 
 
@@ -225,7 +321,7 @@ inline size_t _resize(node_t<_Tc, _Td, _DIM>& node)
         {
             assert(!node._children);
             for (pair_t& item : *(node._data))
-                _shift(item.first, 1U);
+                _shift(item.first);
             if (node._data->size() > 1U)
             {
                 auto head = node._data->begin();
@@ -269,7 +365,7 @@ inline size_t _resize(node_t<_Tc, _Td, _DIM>& node)
                     {
                         num_removed += child._data->size() - 1U;
                         pair_t& target = (*(child._data))[0U];
-                        _shift(target.first, 1U);
+                        _shift(target.first);
                         for (auto iter = child._data->begin() + 1U; iter != child._data->end(); ++iter)
                             merge(target.second, (*iter).second);
                         node._data->push_back(std::move(target));
@@ -379,59 +475,6 @@ inline const node_t<_Tc, _Td, _DIM> * _further(const node_t<_Tc, _Td, _DIM>& nod
     }
 
 
-/*
-    Simplify the tree (after erase; bottom-up)
-*/
-/*template<class _Tc, class _Td, size_t _DIM>
-inline void _simplify(const node_t<_Tc, _Td, _DIM>& leaf)
-    {
-        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
-
-        assert(leaf._data);
-
-        if (leaf._parent == nullptr)
-            return;
-
-        if (_size(*(leaf._parent)) <= (1U << _DIM))
-        {
-            node_t& parent = *(leaf._parent); // Need to make a copy for the _simplify call
-            parent._data = std::make_unique<std::vector<pair_t>>();
-            for (node_t& sibling : *(parent._children))
-                _collect(sibling, *(parent._data));
-            parent._children.reset(nullptr);
-            _simplify(parent);
-        }
-    }*/
-
-
-/*
-    Simplify the tree (after erase; top-down)
-*/
-template<class _Tc, class _Td, size_t _DIM>
-inline void _pruning(node_t<_Tc, _Td, _DIM>& node)
-    {
-        using pair_t = std::pair<std::array<_Tc, _DIM>, _Td>;
-        using node_t = node_t<_Tc, _Td, _DIM>;
-
-        if (node._children)
-        {
-            if (_size(node) <= (1U << _DIM))
-            {
-                node._data = std::make_unique<std::vector<pair_t>>();
-                for (node_t& child : *(node._children))
-                    _collect(child, *(node._data));
-                node._children.reset(nullptr);
-            }
-            else
-            {
-                for (node_t& child : *(node._children))
-                    _pruning(child);
-            }
-        }
-    }
-
-
 } } // End of namespaces _cmapbase and {anonymous}
 
 
@@ -451,70 +494,71 @@ class cmap {
         size_t  _size;
         std::unique_ptr<node_t> _root;
 
-        template<class _Type, size_t _Forward>
+        template<class _Type, typename _vIt>
         class _iterator_base
         {
             private:
 
                 const node_t * _node;
-                size_t         _elem;
+                _vIt           _vitr;
 
                 template <class T = void>
-                inline typename std::enable_if<_Forward == 1, T>::type update()
+                inline typename std::enable_if<std::is_same<_vIt, typename std::vector<pair_t>::iterator>::value, T>::type update()
                 {
                     assert(_node);
-                    if (++_elem == _node->_data->size())
+                    if (++_vitr == _node->_data->end())
                     {
                         _node = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*_node);
-                        _elem = 0U;
+                        _vitr = (_node) ? _node->_data->begin() : viter_void();
                     }
                 }
 
                 template <class T = void>
-                inline typename std::enable_if<_Forward == 0, T>::type update()
+                inline typename std::enable_if<std::is_same<_vIt, typename std::vector<pair_t>::reverse_iterator>::value, T>::type update()
                 {
                     assert(_node);
-                    if (_elem == 0U)
+                    if (++_vitr == _node->_data->rend())
                     {
                         _node = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*_node);
-                        _elem = (_node) ? _node->_data->size() - 1U : 0U;
+                        _vitr = (_node) ? _node->_data->rbegin() : viter_void();
                     }
-                    else
-                        --_elem;
                 }
+
+                static _vIt viter_void() { return _vIt(); }
 
             public:
 
-                _iterator_base(const node_t * node_in, const size_t elem_in) : _node(node_in), _elem(elem_in) {}
-                _iterator_base(const _iterator_base& in) : _node(in._node), _elem(in._elem) {}
+                _iterator_base() : _node(nullptr), _vitr(viter_void()) {}
+                _iterator_base(const node_t * node_in, _vIt vitr_in) : _node(node_in), _vitr(vitr_in) {}
+                _iterator_base(const _iterator_base& in) : _node(in._node), _vitr(in._vitr) {}
                 _iterator_base& operator++() { this->update(); return *this; }
                 _iterator_base  operator++(int) { _iterator_base returnval = *this; this->update(); return returnval; }
-                bool            operator==(_iterator_base other) const noexcept { return (_node == other._node) && (_elem == other._elem); }
-                bool            operator!=(_iterator_base other) const noexcept { return (_node != other._node) || (_elem != other._elem); }
+                bool            operator==(_iterator_base other) const noexcept { return (_node == other._node) && (_vitr == other._vitr); }
+                bool            operator!=(_iterator_base other) const noexcept { return (_node != other._node) || (_vitr != other._vitr); }
                 const node_t * node() const { return _node; }
-                size_t elem() const { return _elem; }
+                _vIt viter() const { return _vitr; }
 
                 template <class T = const pair_t&>
-                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator*() const { return (*(_node->_data))[_elem]; }
+                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator*() const { return *_vitr; }
 
                 template <class T = std::pair<const coord_t&, _Td&>>
-                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator*() const { return { (*(_node->_data))[_elem].first, (*(_node->_data))[_elem].second }; }
+                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator*() const { return { (*_vitr).first, (*_vitr).second }; }
 
                 template <class T = const pair_t&>
-                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator->() const { return (*(_node->_data))[_elem]; }
+                inline typename std::enable_if<std::is_const<_Type>::value, T>::type operator->() const { return *_vitr; }
 
                 template <class T = std::pair<const coord_t&, _Td&>>
-                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator->() const { return { (*(_node->_data))[_elem].first, (*(_node->_data))[_elem].second }; }
+                inline typename std::enable_if<!std::is_const<_Type>::value, T>::type operator->() const { return { (*_vitr).first, (*_vitr).second }; }
 
-                operator _iterator_base<const _Type, _Forward>() const { return _iterator_base<const _Type, _Forward>(_node, _elem); }
+                operator _iterator_base<const _Type, _vIt>() const { return _iterator_base<const _Type, _vIt>(_node, _vitr); }
         };
 
     public:
 
-        typedef _iterator_base<      pair_t, 1> iterator;
-        typedef _iterator_base<const pair_t, 1> const_iterator;
-        typedef _iterator_base<      pair_t, 0> reverse_iterator;
-        typedef _iterator_base<const pair_t, 0> const_reverse_iterator;
+        typedef _iterator_base<      pair_t, typename std::vector<pair_t>::iterator> iterator;
+        typedef _iterator_base<const pair_t, typename std::vector<pair_t>::iterator> const_iterator;
+        typedef _iterator_base<      pair_t, typename std::vector<pair_t>::reverse_iterator> reverse_iterator;
+        typedef _iterator_base<const pair_t, typename std::vector<pair_t>::reverse_iterator> const_reverse_iterator;
 
         cmap() { clear(); }
 
@@ -525,11 +569,15 @@ class cmap {
         cmap& operator=(const cmap&) = delete;
         cmap& operator=(cmap&&) = delete;
 
-        inline void insert(const coord_t& coord_in, const _Td& data_in)
+        inline void insert(const coord_t& coord, const _Td& data)
         {
-            pair_t novel = { coord_in, data_in };
-            _cmapbase::_shift(novel.first, _num_shifts);
-            _size += _cmapbase::_insert(_leaf(*_root, novel.first), novel);
+            _size += _cmapbase::_insert(_leaf(*_root, coord), coord, data);
+        }
+
+        template<class ... _Ts>
+        inline void emplace(const coord_t& coord, _Ts&& ... args)
+        {
+            _size += _cmapbase::_emplace(_leaf(*_root, coord), coord, args ...);
         }
 
         inline void resize()
@@ -543,6 +591,8 @@ class cmap {
         inline size_t size() const { return _size; }
 
         inline bool empty() const { return _size == 0U; }
+
+        inline void prune() const { _pruning(*_root); }
 
         inline void clear()
         {
@@ -563,11 +613,11 @@ class cmap {
             if (empty())
                 return end();
             const node_t * first = _cmapbase::_down<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*_root);
-            return iterator(first, 0U);
+            return iterator(first, first->_data->begin());
         }
 
         inline const_iterator cbegin() const noexcept { return begin(); }
-        inline iterator          end() const noexcept { return iterator(nullptr, 0U); }
+        inline iterator          end() const noexcept { return iterator(); }
         inline const_iterator   cend() const noexcept { return end(); }
 
         inline reverse_iterator rbegin() const noexcept
@@ -575,52 +625,44 @@ class cmap {
             if (empty())
                 return rend();
             const node_t * last = _cmapbase::_down<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*_root);
-            return reverse_iterator(last, last->_data->size() - 1U);
+            return reverse_iterator(last, last->_data->rbegin());
         }
 
         inline const_reverse_iterator crbegin() const noexcept { return rbegin(); }
-        inline       reverse_iterator    rend() const noexcept { return reverse_iterator(nullptr, 0U); }
+        inline       reverse_iterator    rend() const noexcept { return reverse_iterator(); }
         inline const_reverse_iterator   crend() const noexcept { return rend(); }
 
-        inline iterator find(const coord_t& coord_in) const
+        inline iterator find(const coord_t& coord) const
         {
-            coord_t coord = coord_in;
-            _cmapbase::_shift(coord, _num_shifts);
             const node_t& leaf = _cmapbase::_leaf(*_root, coord);
             auto pos = _cmapbase::_pair(leaf, coord);
             if (pos == leaf._data->end())
-                return iterator(nullptr, 0U);
+                return end();
             else
-                return iterator(&leaf, pos - leaf._data->begin());
+                return iterator(&leaf, pos);
         }
 
-        inline _Td& operator[](const coord_t& coord_in)
+        inline _Td& operator[](const coord_t& coord)
         {
-            coord_t coord = coord_in;
-            _cmapbase::_shift(coord, _num_shifts);
             node_t& leaf = _cmapbase::_leaf(*_root, coord);
             auto pos = _cmapbase::_pair(leaf, coord);
             if (pos == leaf._data->end())
             {
-                _size += _cmapbase::_insert(leaf, { coord, _Td() });
+                _size += _cmapbase::_insert(leaf, coord, _Td());
                 pos = _cmapbase::_pair(_cmapbase::_leaf(leaf, coord), coord);
             }
             return (*pos).second;
         }
 
-        inline bool contains(const coord_t& coord_in) const
+        inline bool contains(const coord_t& coord) const
         {
-            coord_t coord = coord_in;
-            _cmapbase::_shift(coord, _num_shifts);
             const node_t& leaf = _cmapbase::_leaf(*_root, coord);
             auto pos = _cmapbase::_pair(leaf, coord);
             return (pos == leaf._data->end()) ? false : true;
         }
 
-        inline size_t erase(const coord_t& coord_in)
+        inline size_t erase(const coord_t& coord)
         {
-            coord_t coord = coord_in;
-            _cmapbase::_shift(coord, _num_shifts);
             node_t& leaf = _cmapbase::_leaf(*_root, coord);
             auto pos = _cmapbase::_pair(leaf, coord);
             if (pos == leaf._data->end())
@@ -633,12 +675,11 @@ class cmap {
             return 1U;
         }
 
-        template <class _Type, size_t _Forward>
-        inline size_t erase(const _iterator_base<_Type, _Forward>& iter)
+        inline size_t erase(const const_iterator& iter)
         {
             if (iter.node() == nullptr)
                 return 0U;
-            iter.node()->_data->erase(iter.node()->_data->begin() + iter.elem());
+            iter.node()->_data->erase(iter.viter());
             --_size;
           //_cmapbase::_simplify(*(iter.node()));
             _cmapbase::_pruning(*_root);
@@ -646,45 +687,23 @@ class cmap {
             return 1U;
         }
 
-        template <class _Type, size_t _Forward, class T = size_t>
-        inline typename std::enable_if<_Forward == 1, T>::type
-        erase(const _iterator_base<_Type, _Forward>& first, const _iterator_base<_Type, _Forward>& stop)
+        inline size_t erase(const const_iterator& first, const const_iterator& stop)
         {
-            auto end  = _iterator_base<_Type, _Forward>(nullptr, 0U);
-            auto iter = _iterator_base<_Type, _Forward>(first);
+            const_iterator end  = cend();
+            const_iterator iter = const_iterator(first);
             size_t number = 0U;
             while ((iter != end) && (iter != stop))
             {
-                auto dbegin = iter.node()->_data->begin() + iter.elem();
-                auto dend   = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() : iter.node()->_data->end();
+                auto dbegin = iter.viter();
+                auto dend   = (iter.node() == stop.node()) ? stop.viter() : iter.node()->_data->end();
                 number += dend - dbegin;
                 iter.node()->_data->erase(dbegin, dend);
                 const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*iter.node());
-                iter = (iter.node() == stop.node()) ? stop : _iterator_base<_Type, _Forward>(next, 0U);
+                iter = (iter.node() == stop.node()) ? stop : ((next)? const_iterator(next, next->_data->begin()) : end);
             }
             _size -= number;
             _cmapbase::_pruning(*_root);
-            return number;
-        }
-
-        template <class _Type, size_t _Forward, class T = size_t>
-        inline typename std::enable_if<_Forward == 0, T>::type
-        erase(const _iterator_base<_Type, _Forward>& first, const _iterator_base<_Type, _Forward>& stop)
-        {
-            auto end  = _iterator_base<_Type, _Forward>(nullptr, 0U);
-            auto iter = _iterator_base<_Type, _Forward>(first);
-            size_t number = 0U;
-            while ((iter != end) && (iter != stop))
-            {
-                auto dbegin = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() + 1U : iter.node()->_data->begin();
-                auto dend   = iter.node()->_data->begin() + iter.elem() + 1U;
-                number += dend - dbegin;
-                iter.node()->_data->erase(dbegin, dend);
-                const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*iter.node());
-                iter = (iter.node() == stop.node()) ? stop : _iterator_base<_Type, _Forward>(next, (next) ? next->_data->size() - 1U : 0U);
-            }
-            _size -= number;
-            _cmapbase::_pruning(*_root);
+            assert(_size == _cmapbase::_size(*_root));
             return number;
         }
 

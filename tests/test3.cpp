@@ -68,7 +68,7 @@ int main()
 
     print_info(my_map);
 
-    while (my_map.size() <= 12U)
+    while (my_map.size() <= 10U)
     {
         coord_t coord = { 2048 + co(gen), 2048 + co(gen), 2048 + co(gen) };
         data_type data = { rad(gen) };
@@ -86,10 +86,6 @@ int main()
     std::cout << "Removed " << num_removed << " elements via cmap::erase(iterator)." << std::endl;
     num_removed = my_map.erase(my_map.cbegin());
     std::cout << "Removed " << num_removed << " elements via cmap::erase(const_iterator)." << std::endl;
-    num_removed = my_map.erase(my_map.rbegin());
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(reverse_iterator)." << std::endl;
-    num_removed = my_map.erase(my_map.crbegin());
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_reverse_iterator)." << std::endl;
     num_removed = my_map.erase((*(my_map.begin())).first);
     std::cout << "Removed " << num_removed << " elements via cmap::erase(coord_t). " << std::endl;
 
@@ -113,34 +109,26 @@ int main()
     for (uint32_t cnt = 0U; cnt < 4U; ++cnt)
         ++iter1;
     auto iter2 = iter1;
-    for (uint32_t cnt = 0U; cnt < 120U; ++cnt)
+    for (uint32_t cnt = 0U; cnt < 60U; ++cnt)
         ++iter2;
 
     num_removed = my_map.erase(iter1, iter2);
     std::cout << "Removed " << num_removed << " elements via cmap::erase(iterator, iterator)." << std::endl;
-    if (my_map.size() != 8U)
+
+    if (my_map.size() != 68U)
         return 247;
 
-    print_info(my_map);
-
-    while (my_map.size() <= 127U)
-    {
-        coord_t coord = { 1024 + 16 * co(gen) + co(gen), 1024 + 16 * co(gen) + co(gen), 8092 + 16 * co(gen) + co(gen) };
-        data_type data = { rad(gen) };
-        my_map.insert(coord, data);
-        std::cout << "Novel = { " << coord[0] << ", " << coord[1] << ", " << coord[2] << " } and rad = " << data.radius << std::endl;
-    }
-
-    auto iter3 = my_map.crbegin();
-    for (uint32_t cnt = 0U; cnt < 3U; ++cnt)
+    auto iter3 = my_map.cbegin();
+    for (uint32_t cnt = 0U; cnt < 4U; ++cnt)
         ++iter3;
     auto iter4 = iter3;
-    for (uint32_t cnt = 0U; cnt < 122U; ++cnt)
+    for (uint32_t cnt = 0U; cnt < 60U; ++cnt)
         ++iter4;
 
     num_removed = my_map.erase(iter3, iter4);
-    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_reverse_iterator, const_reverse_iterator)." << std::endl;
-    if (my_map.size() != 6U)
+    std::cout << "Removed " << num_removed << " elements via cmap::erase(const_iterator, const_iterator)." << std::endl;
+
+    if (my_map.size() != 8U)
         return 245;
 
     print_info(my_map);
