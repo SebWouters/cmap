@@ -646,37 +646,47 @@ class cmap {
             return 1U;
         }
 
-      /*template <class _Type, size_t _Forward>
-        inline size_t erase(const _iterator_base<_Type, _Forward>& first, const _iterator_base<_Type, _Forward>& stop)
+        template <class _Type, size_t _Forward, class T = size_t>
+        inline typename std::enable_if<_Forward == 1, T>::type
+        erase(const _iterator_base<_Type, _Forward>& first, const _iterator_base<_Type, _Forward>& stop)
         {
             auto end  = _iterator_base<_Type, _Forward>(nullptr, 0U);
             auto iter = _iterator_base<_Type, _Forward>(first);
             size_t number = 0U;
             while ((iter != end) && (iter != stop))
             {
-                if (_Forward)
-                {
-                    auto dbegin = iter.node()->_data->begin() + iter.elem();
-                    auto dend   = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() : iter.node()->_data->begin();
-                    number += dend - dbegin;
-                    iter.node()->_data->erase(dbegin, dend);
-                    const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*iter.node());
-                    iter = _iterator_base<_Type, _Forward>(next, 0U);
-                }
-                else
-                {
-                    auto dbegin = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() + 1U : iter.node()->_data->begin();
-                    auto dend   = iter.node()->_data->begin() + iter.elem() + 1U;
-                    number += dend - dbegin;
-                    iter.node()->_data->erase(dbegin, dend);
-                    const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*iter.node());
-                    iter = _iterator_base<_Type, _Forward>(next, (next) ? next->_data->size() - 1U : 0U);
-                }
+                auto dbegin = iter.node()->_data->begin() + iter.elem();
+                auto dend   = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() : iter.node()->_data->end();
+                number += dend - dbegin;
+                iter.node()->_data->erase(dbegin, dend);
+                const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_iterator>(*iter.node());
+                iter = (iter.node() == stop.node()) ? stop : _iterator_base<_Type, _Forward>(next, 0U);
             }
             _size -= number;
             _cmapbase::_pruning(*_root);
             return number;
-        }*/
+        }
+
+        template <class _Type, size_t _Forward, class T = size_t>
+        inline typename std::enable_if<_Forward == 0, T>::type
+        erase(const _iterator_base<_Type, _Forward>& first, const _iterator_base<_Type, _Forward>& stop)
+        {
+            auto end  = _iterator_base<_Type, _Forward>(nullptr, 0U);
+            auto iter = _iterator_base<_Type, _Forward>(first);
+            size_t number = 0U;
+            while ((iter != end) && (iter != stop))
+            {
+                auto dbegin = (iter.node() == stop.node()) ? stop.node()->_data->begin() + stop.elem() + 1U : iter.node()->_data->begin();
+                auto dend   = iter.node()->_data->begin() + iter.elem() + 1U;
+                number += dend - dbegin;
+                iter.node()->_data->erase(dbegin, dend);
+                const node_t * next = _cmapbase::_further<typename std::array<node_t, (1U << _DIM)>::const_reverse_iterator>(*iter.node());
+                iter = (iter.node() == stop.node()) ? stop : _iterator_base<_Type, _Forward>(next, (next) ? next->_data->size() - 1U : 0U);
+            }
+            _size -= number;
+            _cmapbase::_pruning(*_root);
+            return number;
+        }
 
 
 };
