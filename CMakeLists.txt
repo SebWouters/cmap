@@ -55,6 +55,7 @@ add_executable(test3 tests/test3.cpp)
 add_executable(test4 tests/test4.cpp)
 add_executable(test5 tests/test5.cpp)
 add_executable(test6 tests/test6.cpp ${CMAKE_BINARY_DIR}/permutation.hpp)
+add_executable(test7 tests/test7.cpp ${CMAKE_BINARY_DIR}/permutation.hpp)
 
 target_include_directories(test1 PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
 target_include_directories(test2 PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -62,6 +63,7 @@ target_include_directories(test3 PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test4 PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test5 PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(test6 PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+target_include_directories(test7 PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
 
 add_test(permutation      test1)
 add_test(cmap:iterator    test2)
@@ -69,5 +71,6 @@ add_test(cmap:erase       test3)
 add_test(cmap:overwrite   test4)
 add_test(cmap:emplace     test5)
 add_test(cmap<->std::map  test6)
+add_test(timing           test7)
 
 
