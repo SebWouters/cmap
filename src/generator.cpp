@@ -16,7 +16,7 @@
 void permute_printer(std::ofstream& output, const std::string& Type, const uint32_t NBITS, const uint32_t DIM)
 {
     /*
-        perm[ip][bp] = coord[ic][bc];
+        perm[DIM - 1U - ip][bp] = coord[ic][bc]; --> Last coordinate in permute contains LSB of permute (for comparison std::array)
         ic + _DIM * bc = ip * _NBITS + bp
         ip = (ic + _DIM * bc) / _NBITS;
         bp = (ic + _DIM * bc) % _NBITS;
@@ -28,7 +28,7 @@ void permute_printer(std::ofstream& output, const std::string& Type, const uint3
     output << "{" << std::endl;
     for (uint32_t ip = 0U; ip < DIM; ++ip)
     {
-        output << "    perm[" << ip << "] =" << std::endl;
+        output << "    perm[" << DIM - 1U - ip << "] =" << std::endl;
         for (uint32_t bp = 0U; bp < NBITS; ++bp)
         {
             const uint32_t ic = ( ip * NBITS + bp ) % DIM;
@@ -46,7 +46,7 @@ void permute_printer(std::ofstream& output, const std::string& Type, const uint3
 void unravel_printer(std::ofstream& output, const std::string& Type, const uint32_t NBITS, const uint32_t DIM)
 {
     /*
-        perm[ip][bp] = coord[ic][bc];
+        perm[DIM - 1U - ip][bp] = coord[ic][bc]; --> Last coordinate in permute contains LSB of permute (for comparison std::array)
         ic + _DIM * bc = ip * _NBITS + bp
         ip = (ic + _DIM * bc) / _NBITS;
         bp = (ic + _DIM * bc) % _NBITS;
@@ -67,7 +67,7 @@ void unravel_printer(std::ofstream& output, const std::string& Type, const uint3
             const std::string bcspc = (bc < 10U) ? "  " : " ";
             const std::string start = (bc == 0U) ? "          " : "        ^ "; 
             const std::string end   = (bc + 1U == NBITS) ? ";" : "";
-            output << start << "(((perm[" << ip << "] >> " << bpspc << bp << ") & 1U) << " << bcspc << bc << ")" << end << std::endl;
+            output << start << "(((perm[" << DIM - 1U - ip << "] >> " << bpspc << bp << ") & 1U) << " << bcspc << bc << ")" << end << std::endl;
         }
     }
     output << "}" << std::endl << std::endl << std::endl;

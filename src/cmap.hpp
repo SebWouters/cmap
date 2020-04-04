@@ -171,7 +171,7 @@ inline void _prune(node_t<_Tc, _DIM, _Td>& node)
     {
         if (node._children)
         {
-            const size_t number = _size(node);
+            const size_t number = _size(node); // TODO: Child holds its size to avoid recomputation
             if (number <= (1U << _DIM))
             {
                 node._data = std::make_unique<data_vec<_Tc, _DIM, _Td>>();
