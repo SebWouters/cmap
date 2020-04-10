@@ -151,8 +151,7 @@ inline void _collect(const node_t<_Tc, _DIM, _Td>& node, data_vec<_Tc, _DIM, _Td
         if (node._data)
         {
             assert(!node._children);
-            for (auto& item : *(node._data))
-                result.push_back(std::move(item)); // TODO: insert with iterator range?
+            result.insert(result.end(), node._data->begin(), node._data->end());
         }
         else
         {
@@ -197,6 +196,8 @@ template<class _Tc, size_t _DIM, class _Td>
 inline void _split(node_t<_Tc, _DIM, _Td>& node)
     {
         assert(node._level != 0U);
+        assert( node._data);
+        assert(!node._children);
         const uint8_t child_level = node._level - 1U;
         node._children = std::make_unique<node_arr<_Tc, _DIM, _Td>>();
         for (auto& newchild : *(node._children))
@@ -329,9 +330,9 @@ inline size_t _resize(node_t<_Tc, _DIM, _Td>& node)
                     if (child._data->size() != 0U)
                     {
                         num_removed += child._data->size() - 1U;
-                        auto& target = (*(child._data))[0U];
+                        auto& target = child._data->front();
                         _shift(target.first);
-                        for (auto iter = child._data->begin() + 1U; iter != child._data->end(); ++iter)
+                        for (auto iter = ++(child._data->begin()); iter != child._data->end(); ++iter)
                             merge(target.second, (*iter).second);
                         node._data->push_back(std::move(target));
                     }
